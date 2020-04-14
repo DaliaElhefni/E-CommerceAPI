@@ -27,6 +27,7 @@ router.post('/register',async(req,res)=>{
         }
     })
 
+    // Hash The Password
     hashPassword(user.password).then(async (hash)=>{
         user.password = hash
         console.log(user.password)
