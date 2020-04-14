@@ -5,6 +5,8 @@ const validateObjectId = require('../helpers/validateObjectId');
 const router = express.Router();
 const hashPassword = require('../helpers/passwordHashing');
 
+// Hello From Ahmed w Hamada
+
 // Data : Full User Schema
 router.post('/register',async(req,res)=>{
     // Validate Request Body
@@ -27,6 +29,7 @@ router.post('/register',async(req,res)=>{
         }
     })
 
+    // Hash The Password
     hashPassword(user.password).then(async (hash)=>{
         user.password = hash
         console.log(user.password)
