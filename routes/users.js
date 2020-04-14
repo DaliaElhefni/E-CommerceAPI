@@ -3,7 +3,6 @@ const userModel = require('../models/user');
 const validateUser = require('../helpers/validateUser');
 const validateObjectId = require('../helpers/validateObjectId');
 const router = express.Router();
-const bcrypt = require('bcrypt');
 const hashPassword = require('../helpers/passwordHashing');
 
 // Data : Full User Schema
