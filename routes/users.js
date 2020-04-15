@@ -20,26 +20,24 @@ router.post('/register',async(req,res)=>{
     
     // Check if email Already Exists
     let email = user.email;
-  await  userModel.findOne({"email":email},function(error,user){
+  await  userModel.findOne({"email":email},function(error,exists){
         if(error){
             res.send("Error With E-mail");
-        }else if(user){
-           return res.send("Email Already Exists") 
-        }
-    })
-
-    // Hash The Password
-    hashPassword(user.password).then(async (hash)=>{
+        }else if(!exists){
+        // Hash The Password
+        hashPassword(user.password).then(async (hash)=>{
         user.password = hash
         console.log(user.password)
-    // Save in DB
-    user = await user.save();
-    res.send(user)
+        // Save in DB
+        user = await user.save();
+        res.send(user)
+        })
+        .catch((err)=> res.send(err));
+        }else if(exists){
+            return res.send("Email Already Exists")            
+        }
     })
-    .catch((err)=> res.send(err));
-    
-
-    
+            
 });
 
 // Data : E-mail and password
@@ -59,6 +57,7 @@ router.post('/login' , async(req,res)=>{
                 // Hash the Password and compare it with the Hashed Password in the DB
                 const hash = hashPassword(body.password)
                 hash.then((hashValue)=>{
+                    console.log(hashValue)
                     user.password == hashValue ? res.send(user) : res.status(401).send("Invalid Password");})
                 .catch((err)=>{res.send(err)});                
             }
