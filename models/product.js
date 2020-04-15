@@ -9,6 +9,11 @@ const productSchema = new Schema({
         required: true,
         min: 0
     },
+    quantity: {
+        type: Number,
+        required: true,
+        min:0
+    },
     description: { type: String, required: true },
     picture: { type: String, required: true },
     promotion: {
