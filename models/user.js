@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
+mongoose.set('useFindAndModify', false);
 require('mongoose-type-email');
-
 const Schema = mongoose.Schema
 
 const userSchema = new Schema({
@@ -41,6 +41,11 @@ const userSchema = new Schema({
         type: mongoose.Schema.Types.ObjectId,
         required: true,
         ref: 'Product'
+    }],
+    orders:[{
+        type: mongoose.Schema.Types.ObjectId,
+        required: true,
+        ref: 'order'
     }]
 })
 
