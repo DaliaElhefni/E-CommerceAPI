@@ -72,7 +72,7 @@ router.post('/register',async(req,res)=>{
 // Output : Tokin of The User
 router.post('/login' , async(req,res)=>{
 
-    // Check if E-mail Exists, Then Check Password
+    // Check if E-mail Exists, Then Check Password 
     let body = req.body;
    await userModel.findOne({"email":body.email},async function(error,user){
     if(error){
