@@ -6,7 +6,7 @@ const usersRoutes = require('./routes/users');
 const app = express();
 app.use(express.json());
 
- mongoose.connect('mongodb+srv://angularProject:angularProject@angularproject-p4l3j.mongodb.net/SouqDB?retryWrites=true&w=majority',
+ mongoose.connect('mongodb+srv://angularProject:angularProject@angularproject-p4l3j.mongodb.net/SouqDB?retryWrites=true&w=majority', 
 // mongoose.connect('mongodb://localhost:27017/souqappdb',
 {
 useNewUrlParser:true,
