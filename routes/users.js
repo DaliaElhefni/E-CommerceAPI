@@ -7,8 +7,10 @@ const userModel = require('../models/user');
 const productModel = require('../models/product');
 const validateUser = require('../helpers/validateUser');
 const validateObjectId = require('../helpers/validateObjectId');
+const oktaJwtVerifier = require('@okta/jwt-verifier');
 
-// Data : Full User Schema in Body
+// Input : Full User Schema in Body 
+// Output : Add User To DB
 router.post('/register',async(req,res)=>{
     // Validate Request Body
    let {error} = validateUser(req.body);
@@ -36,11 +38,10 @@ router.post('/register',async(req,res)=>{
 
             // Set user role to user if admin exists
             user.role = "user";
-            // Save in DB And Send Token To Frontend
+            // Save in DB And Send User Token To Frontend
             user = await user.save(function(error,registeredUser){
-                console.log(registeredUser.id);
                 let payload = { subject:registeredUser.id}
-                let token = jwt.sign(payload,'secretKey')
+                let token = jwt.sign(payload,'user')
                 res.status(200).send({token});
                 
             });
@@ -49,9 +50,8 @@ router.post('/register',async(req,res)=>{
             // set user role to admin if not exists
             user.role = "admin";
             
-            // Save in DB And Send Token To Frontend
+            // Save in DB And Send Admin Token To Frontend
             user = await user.save(function(error,registeredUser){
-                console.log(registeredUser.id);
                 let payload = { subject:registeredUser.id}
                 let token = jwt.sign(payload,'admin')
                 res.status(200).send({token});
@@ -68,23 +68,22 @@ router.post('/register',async(req,res)=>{
             
 });
 
-// Data : (E-mail, password and Token) in Body
+// Input : (E-mail, password) in Body
+// Output : Tokin of The User
 router.post('/login' , async(req,res)=>{
 
     // Check if E-mail Exists, Then Check Password
     let body = req.body;
    await userModel.findOne({"email":body.email},async function(error,user){
     if(error){
-            res.send(error);
+            res.send("Error Finding E-mail");
         }
         else if(!user){
                 res.status(401).send("Invalid Email")
-            }else if(user){
-                console.log(user.username)            
+            }else if(user){            
                 // Compare passwords and return user if success
                 Bcrypt.comparePassword(body.password,user.password)
                 .then((isMatch)=>{  
-                    console.log(user.id)
                     let payload = { subject:user.id};
                     let token = jwt.sign(payload,'secretKey');
                     res.status(200).send({token});
@@ -96,8 +95,29 @@ router.post('/login' , async(req,res)=>{
     )
 })
 
-// Data : User ID & (Admin Token , Admin ID) in Body
-router.get('/:id' , async(req,res)=>{
+// Input : (Name of The User To Be Searched , User or Admin Token ) in Body
+// Output : (Specific User)
+router.get('/get/:name',async(req,res)=>{
+    const body = req.body;
+    const {name} = req.params
+    // Decode Token
+    const token = jwtDecode(body.token);
+
+    // Check if Decoded ID is Valid as a User or Admin
+    userModel.findById(token.subject,async function(error,exists){
+        if(error){
+            res.status(401).send("Invalid User ID")
+        }else{
+            let user = await userModel.find({username:name});
+            res.status(200).send(user)
+        }
+    })
+
+})
+
+// Input : User ID & (Admin Token) in Body
+// Output : Specific User
+router.get('/get/:id' , async(req,res)=>{
     const body = req.body;
     const {id} = req.params;
     const {error} = validateObjectId(id);
@@ -106,59 +126,136 @@ router.get('/:id' , async(req,res)=>{
     }
 
     // Decode Admin Token into Admin ID
+    
     var adminId = jwtDecode(body.token);
-        
-    // Compare Admin ID Decoded Token
-    if(adminId.subject == body.id){
-        const user = await userModel.findById(id);
-        res.send(user);
-    }else{
-       res.status(401).send("You are not Admin")
-    }
     
+    // Check if Admin ID Role is admin, And Send User If So
+    userModel.findById(adminId.subject,async function(error,user){
+        if(error){
+            res.status(401).send("Invalid Token")
+        }else{
+            if(user.role == "admin"){
+                const user = await userModel.findById(id);
+                res.status(200).send(user);
+            }else{
+                res.status(401).send("You Are not Allowed To See Users");
+            }
+        }
+    })
     
-
 })
 
-// Data : (Admin Token , Admin ID) in Body
+// Input : (Admin Token) in Body
+// Output : All Users
 router.get('/get/all' , async(req,res)=>{
 
-    console.log("GET")
     const body = req.body;
     
     // Decode Admin Token into Admin ID
     var adminId = jwtDecode(body.token);
         
-    // Compare Admin ID Decoded Token
-    if(adminId.subject == body.id){
-        const user = await userModel.find();
-        res.send(user);
-    }else{
-       res.status(401).send("You are not Admin")
-    }
+    // Check if Admin ID Role is admin
+    userModel.findById(adminId.subject,async function(error,user){
+        if(error){
+            res.status(401).send("Invalid Token")
+        }else{
+            // user.role = "admin" ? res.status(200).send(userModel.find()) : res.status(401).send("You Are not Allowed To See Users");
+            if(user.role == "admin"){
+                let user = await userModel.find()
+                res.status(200).send(user);
+            }else{
+                res.status(401).send("You Are not Allowed To See Users");
+            }
+        
+        }
+    })
+    
     
 })
 
+// Input : (User or Admin Token) in Body
+// Output : User's Products
+router.get('/get/products', async(req,res)=>{
 
-// Data : User ID
+    const body = req.body;
+
+    // Get User Token
+    const userID = jwtDecode(body.token);
+
+    userModel.findById(userID.subject,function(error,user){
+        if(error){
+            res.status(401).send("Invalid User")
+        }else{
+            res.status(401).send(user.products)
+        }
+    })
+
+
+})
+
+// Input : (User or Admin Token) in Body
+// Output : User's Orders
+router.get('/get/orders', async(req,res)=>{
+
+    const body = req.body;
+
+    const userID = jwtDecode(body.token);
+
+    userModel.findById(userID.subject,function(error,user){
+        if(error){
+            res.status(401).send("Invalid User")
+        }else{
+            res.status(401).send(user.orders)
+        }
+    })
+
+
+})
+
+// Input : User ID and (Admin Token) in body
+// Output : Deletion Confirmation
 router.delete('/:id' , async(req,res)=>{
 
-    const {id} = req.body.params;
-
+    const {id} = req.params;
+    const body = req.body;
     const {error} = validateObjectId(id);
     if(error){
         return res.status(500).send("Invalid User ID");
     }
 
-    const user = await userModel.findByIdAndDelete(id);
-    console.log(user)
+    if(body.token){
+    const adminToken = jwtDecode(body.token)
 
-    res.send(`User ${req.body.username} Was Deleted Succesfully`);
+    userModel.findById(adminToken.subject,function(error,user){
+        if(error){
+            res.status(401).send("Invalid Admin ID")
+        }else{
+            if(user.role == "admin"){
+                userModel.findByIdAndDelete(id,function(error,success){
+                    if(!success){
+                        res.status(401).send("User Is Not Found")
+                    }else if(success){
+                         res.status(401).send("Deleted Succesfully")
+                    }
+                });
+            }
+            else
+            {
+            res.status(401).send("You are not and Admin")
+            }
+        }
 
+    })
+    }
+    else{
+        res.status(401).send("No Token Sent")
+
+    }
 
 })
 
-// Data : User ID & Data To be Modified in Body
+// Input : (User ID) And (Input To be Modified) in Body
+// Output : Message
 router.put('/edit/:id',async(req,res)=>{
     const{id} = req.params;
     const{error} = validateObjectId(id);
@@ -169,14 +266,14 @@ router.put('/edit/:id',async(req,res)=>{
     let body = req.body;
 
     //check if there is a role in the body
+    // if There is admin already in DB make The role = user
+    // if not make the role = admin
     if('role' in body){
         Bcrypt.checkAdminExists("admin").then(()=>{
             body.role = "user";
-            console.log(`admin already exists ,Your Role is ${body.role}`)
             })
         .catch(()=> {
-            body.role = "admin"
-        console.log(`admin doesn't exists, Your rule is ${body.role}`)    
+        body.role = "admin";
     })
     } 
     
@@ -188,21 +285,18 @@ router.put('/edit/:id',async(req,res)=>{
 }
 
 
-// userModel.findOne({_id: id},async function(err, user){
-//      user = body;
-//     await user.save(function(err) {
-//         if(err){
-//             console.log(user)
-//             console.log("Error Saving")
-//         }else{
-//             res.send(user)
-//         }
-//     });
-//  });
+await userModel.findByIdAndUpdate(id,body,function(error,success){
+    if(error){
+        res.status(401).send("Error Can't Update")
+    }else{
+        res.status(401).send("Updated Succesfuly")
+    }
+})
 
 })
 
-// Data : User ID & One Product Per Time {Product ID} in Body
+// Input : User ID & One Product Per Time {Product ID} in Body
+// Output :
 router.put('/:id/product',async(req,res)=>{
     const{id} = req.params;
     const{error} = validateObjectId(id);
@@ -225,22 +319,16 @@ router.put('/:id/product',async(req,res)=>{
 
     var feed = {};
 
-    userModel.findById(id,function(err,user){
+    userModel.findByIdAndUpdate(id,feed,function(err,user){
         if(err){
             console.log("Error")
         }else{
             user.products.push(feed)
-            // console.log(user)
         }
     })
 
 
 })
-
-
-
-
-
 
 
 module.exports = router;
