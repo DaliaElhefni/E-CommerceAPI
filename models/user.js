@@ -32,7 +32,7 @@ const userSchema = new Schema({
             message: props => `${props.value} is not a valid gender!`
         }
      },
-    picture: { type: String, required: true },
+    profileimage: { type: String, required: true },
     role: {
         type: String,
         required: true,

@@ -9,9 +9,38 @@ const validateUser = require('../helpers/validateUser');
 const validateObjectId = require('../helpers/validateObjectId');
 const oktaJwtVerifier = require('@okta/jwt-verifier');
 
+//add package multer to deal with profile image 
+const multer = require('multer');
+//determine the destination and image name
+const storage = multer.diskStorage({
+    destination: function (req, file, callback) {
+        callback(null, './ProfileImages/');
+    }
+    ,
+    filename: function (req, file, callback) {
+        callback(null, file.originalname);
+    }
+});
+//add filter to image extension 
+
+const fileFilter = (req, file, callback) => {
+    if (file.mimetype == 'image/jpeg' || file.mimetype == 'image/png' || file.mimetype == 'image/jpg') {
+        //accept
+        callback(null, true);
+    } else {
+        //reject
+        callback(null, false);
+    }
+};
+
+// create  the middle ware to pass the image
+const upload = multer({ storage: storage, fileFilter: fileFilter });
+
+
 // Input : Full User Schema in Body 
 // Output : Add User To DB
-router.post('/register',async(req,res)=>{
+// add middleware to register with profile photo
+router.post('/register' , upload.single('profileimage'),async(req,res)=>{
     // Validate Request Body
    let {error} = validateUser(req.body);
     if(error){
@@ -20,7 +49,10 @@ router.post('/register',async(req,res)=>{
 
        
     // Use Schema
-    let user = new userModel({...req.body})
+    let user = new userModel({...req.body  
+    , 
+    profileimage : req.file.path
+    })
     
     // Check if email Already Exists
     let email = user.email;
