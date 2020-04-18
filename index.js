@@ -16,6 +16,9 @@ useUnifiedTopology:true
 .catch(err => console.log('failed to connect to Mongodb ',err.message));
 
 
-app.use('/user',usersRoutes)
+app.use('/anony',anonRoutes);
+app.use(middlewareAuthentication);
+
+app.use('/user',usersRoutes);
 
 app.listen(3000, () =>console.log("Server started at port 3000.."));

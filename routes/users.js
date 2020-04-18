@@ -9,6 +9,8 @@ const validateUser = require('../helpers/validateUser');
 const validateObjectId = require('../helpers/validateObjectId');
 const oktaJwtVerifier = require('@okta/jwt-verifier');
 
+
+
 // Input : Full User Schema in Body 
 // Output : Add User To DB
 router.post('/register',async(req,res)=>{
@@ -95,7 +97,8 @@ router.post('/login' , async(req,res)=>{
     )
 })
 
-// Input : (Name of The User To Be Searched , User or Admin Token ) in Body
+
+// Input : (Name of The User To Be Searched ,  Admin Token ) in Body
 // Output : (Specific User)
 router.get('/get/:name',async(req,res)=>{
     const body = req.body;
