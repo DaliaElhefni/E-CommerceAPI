@@ -1,12 +1,16 @@
 const express = require('express');
+const router = express.Router();
+const jwt = require('jsonwebtoken');
+var jwtDecode = require('jwt-decode');
+const Bcrypt = require('../helpers/bCrypt');
 const userModel = require('../models/user');
+const productModel = require('../models/product');
 const validateUser = require('../helpers/validateUser');
 const validateObjectId = require('../helpers/validateObjectId');
-const router = express.Router();
-const hashPassword = require('../helpers/passwordHashing');
+const oktaJwtVerifier = require('@okta/jwt-verifier');
 
-
-// Data : Full User Schema
+// Input : Full User Schema in Body 
+// Output : Add User To DB
 router.post('/register',async(req,res)=>{
     // Validate Request Body
    let {error} = validateUser(req.body);
@@ -21,87 +25,237 @@ router.post('/register',async(req,res)=>{
     // Check if email Already Exists
     let email = user.email;
   await  userModel.findOne({"email":email},function(error,exists){
-        if(error){
+    if(error){
             res.send("Error With E-mail");
         }else if(!exists){
         // Hash The Password
-        hashPassword(user.password).then(async (hash)=>{
+    Bcrypt.hashPassword(user.password).then(async (hash)=>{
         user.password = hash
-        console.log(user.password)
-        // Save in DB
-        user = await user.save();
-        res.send(user)
+        
+        // Check if There is an Admin Already
+        // const checkAdminExists = Bcrypt.checkAdminExists("admin");
+        Bcrypt.checkAdminExists("admin").then(async()=> {
+
+            // Set user role to user if admin exists
+            user.role = "user";
+            // Save in DB And Send User Token To Frontend
+            user = await user.save(function(error,registeredUser){
+                let payload = { subject:registeredUser.id}
+                let token = jwt.sign(payload,'user')
+                res.status(200).send({token});
+                
+            });
         })
-        .catch((err)=> res.send(err));
-        }else if(exists){
+        .catch(async ()=> {
+            // set user role to admin if not exists
+            user.role = "admin";
+            
+            // Save in DB And Send Admin Token To Frontend
+            user = await user.save(function(error,registeredUser){
+                let payload = { subject:registeredUser.id}
+                let token = jwt.sign(payload,'admin')
+                res.status(200).send({token});
+                
+            });
+        })        
+
+    }).catch((err)=> res.send(err));
+        
+}else if(exists){
             return res.send("Email Already Exists")            
         }
     })
             
 });
 
-// Data : E-mail and password
+// Input : (E-mail, password) in Body
+// Output : Tokin of The User
 router.post('/login' , async(req,res)=>{
 
-    // Check if E-mail Exists, Then Check Password
+    // Check if E-mail Exists, Then Check Password 
     let body = req.body;
    await userModel.findOne({"email":body.email},async function(error,user){
-        if(error){
-            res.send(error);
+    if(error){
+            res.send("Error Finding E-mail");
         }
-        else{
-            if(!user){
+        else if(!user){
                 res.status(401).send("Invalid Email")
-            }else if(user){
-                
-                // Hash the Password and compare it with the Hashed Password in the DB
-                const hash = hashPassword(body.password)
-                hash.then((hashValue)=>{
-                    console.log(hashValue)
-                    user.password == hashValue ? res.send(user) : res.status(401).send("Invalid Password");})
-                .catch((err)=>{res.send(err)});                
+            }else if(user){            
+                // Compare passwords and return user if success
+                Bcrypt.comparePassword(body.password,user.password)
+                .then((isMatch)=>{  
+                    let payload = { subject:user.id};
+                    let token = jwt.sign(payload,'secretKey');
+                    res.status(200).send({token});
+                })
+                .catch((error)=>res.send("Password Doesn't Match"))
             }
+        }
+
+    )
+})
+
+// Input : (Name of The User To Be Searched , User or Admin Token ) in Body
+// Output : (Specific User)
+router.get('/get/:name',async(req,res)=>{
+    const body = req.body;
+    const {name} = req.params
+    // Decode Token
+    const token = jwtDecode(body.token);
+
+    // Check if Decoded ID is Valid as a User or Admin
+    userModel.findById(token.subject,async function(error,exists){
+        if(error){
+            res.status(401).send("Invalid User ID")
+        }else{
+            let user = await userModel.find({username:name});
+            res.status(200).send(user)
+        }
+    })
+
+})
+
+// Input : User ID & (Admin Token) in Body
+// Output : Specific User
+router.get('/get/:id' , async(req,res)=>{
+    const body = req.body;
+    const {id} = req.params;
+    const {error} = validateObjectId(id);
+    if(error){
+        return res.status(500).send("Invalid User ID");
+    }
+
+    // Decode Admin Token into Admin ID
+    
+    var adminId = jwtDecode(body.token);
+    
+    // Check if Admin ID Role is admin, And Send User If So
+    userModel.findById(adminId.subject,async function(error,user){
+        if(error){
+            res.status(401).send("Invalid Token")
+        }else{
+            if(user.role == "admin"){
+                const user = await userModel.findById(id);
+                res.status(200).send(user);
+            }else{
+                res.status(401).send("You Are not Allowed To See Users");
+            }
+        }
+    })
+    
+})
+
+// Input : (Admin Token) in Body
+// Output : All Users
+router.get('/get/all' , async(req,res)=>{
+
+    const body = req.body;
+    
+    // Decode Admin Token into Admin ID
+    var adminId = jwtDecode(body.token);
+        
+    // Check if Admin ID Role is admin
+    userModel.findById(adminId.subject,async function(error,user){
+        if(error){
+            res.status(401).send("Invalid Token")
+        }else{
+            // user.role = "admin" ? res.status(200).send(userModel.find()) : res.status(401).send("You Are not Allowed To See Users");
+            if(user.role == "admin"){
+                let user = await userModel.find()
+                res.status(200).send(user);
+            }else{
+                res.status(401).send("You Are not Allowed To See Users");
+            }
+        
+        }
+    })
+    
+    
+})
+
+// Input : (User or Admin Token) in Body
+// Output : User's Products
+router.get('/get/products', async(req,res)=>{
+
+    const body = req.body;
+
+    // Get User Token
+    const userID = jwtDecode(body.token);
+
+    userModel.findById(userID.subject,function(error,user){
+        if(error){
+            res.status(401).send("Invalid User")
+        }else{
+            res.status(401).send(user.products)
         }
     })
 
 
 })
 
-// Data : User ID
-router.get('/:id' , async(req,res)=>{
+// Input : (User or Admin Token) in Body
+// Output : User's Orders
+router.get('/get/orders', async(req,res)=>{
 
-    const {id} = req.params;
-    console.log(id);
-    const {error} = validateObjectId(id);
-    if(error){
-        return res.status(500).send("Invalid User ID");
-    }
+    const body = req.body;
 
-    const user = await userModel.findById(id);
+    const userID = jwtDecode(body.token);
 
-    res.send(user);
+    userModel.findById(userID.subject,function(error,user){
+        if(error){
+            res.status(401).send("Invalid User")
+        }else{
+            res.status(401).send(user.orders)
+        }
+    })
+
 
 })
 
-// Data : User ID
+// Input : User ID and (Admin Token) in body
+// Output : Deletion Confirmation
 router.delete('/:id' , async(req,res)=>{
 
-    const {id} = req.body.params;
-
+    const {id} = req.params;
+    const body = req.body;
     const {error} = validateObjectId(id);
     if(error){
         return res.status(500).send("Invalid User ID");
     }
 
-    const user = await userModel.findByIdAndDelete(id);
-    console.log(user)
+    if(body.token){
+    const adminToken = jwtDecode(body.token)
 
-    res.send(`User ${req.body.username} Was Deleted Succesfully`);
+    userModel.findById(adminToken.subject,function(error,user){
+        if(error){
+            res.status(401).send("Invalid Admin ID")
+        }else{
+            if(user.role == "admin"){
+                userModel.findByIdAndDelete(id,function(error,success){
+                    if(!success){
+                        res.status(401).send("User Is Not Found")
+                    }else if(success){
+                         res.status(401).send("Deleted Succesfully")
+                    }
+                });
+            }
+            else
+            {
+            res.status(401).send("You are not and Admin")
+            }
+        }
 
+    })
+    }
+    else{
+        res.status(401).send("No Token Sent")
+
+    }
 
 })
 
-// Data : ID & Data To be Modified
+// Input : (User ID) And (Input To be Modified) in Body
+// Output : Message
 router.put('/edit/:id',async(req,res)=>{
     const{id} = req.params;
     const{error} = validateObjectId(id);
@@ -111,31 +265,70 @@ router.put('/edit/:id',async(req,res)=>{
     
     let body = req.body;
 
-    // check if there is a password in the body
-    if('password' in req.body){
-        
+    //check if there is a role in the body
+    // if There is admin already in DB make The role = user
+    // if not make the role = admin
+    if('role' in body){
+        Bcrypt.checkAdminExists("admin").then(()=>{
+            body.role = "user";
+            })
+        .catch(()=> {
+        body.role = "admin";
+    })
+    } 
+    
+    if('password' in body){        
         // hash the password
-        const hash = hashPassword(req.body.password)
-                hash.then(async(hashValue)=>{
-                
-                    body.password = hashValue;
-                    // Update the DB
-                   await userModel.findByIdAndUpdate(id,body,function(err,result){
-                     if(err)
-                     {
-                         res.status(500).send(err);
-                     }
-                     else
-                     {
-                     res.send(result);
-                     }
-                 })          
-                })
-                .catch((err)=>{res.send(err)});         
+         Bcrypt.hashPassword(body.password).then((hashValue)=>{                
+            body.password = hashValue;})
+            .catch((err)=>{res.send(err)});         
 }
+
+
+await userModel.findByIdAndUpdate(id,body,function(error,success){
+    if(error){
+        res.status(401).send("Error Can't Update")
+    }else{
+        res.status(401).send("Updated Succesfuly")
+    }
+})
 
 })
 
+// Input : User ID & One Product Per Time {Product ID} in Body
+// Output :
+router.put('/:id/product',async(req,res)=>{
+    const{id} = req.params;
+    const{error} = validateObjectId(id);
+    if(error){
+        res.status(400).send("Invalid UserID");
+    }
+
+    const body = req.body;
+
+    // Check if Product Exists in DB
+    // productModel.findById(body.id,function(error,product){
+    //     if(error){
+    //         res.status(401).send("Product Is Sold Out")
+    //     }
+    //     else{
+    //         userModel.findOneAndUpdate(id,product.id);
+    //         console.log()
+    //     }
+    // })
+
+    var feed = {};
+
+    userModel.findByIdAndUpdate(id,feed,function(err,user){
+        if(err){
+            console.log("Error")
+        }else{
+            user.products.push(feed)
+        }
+    })
+
+
+})
 
 
 module.exports = router;
