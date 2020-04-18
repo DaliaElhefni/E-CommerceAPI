@@ -17,7 +17,7 @@ const orderSchema = new Schema({
         default: "pending",
         validate: {
             validator: function (v) {
-                let values = ["pending","accepted, rejected"]
+                let values = ["pending","accepted", "rejected"]
                 return values.includes(v.toLowerCase());
             },
             message: props => `${props.value} is not a valid order status!`
@@ -29,9 +29,15 @@ const orderSchema = new Schema({
         ref: 'User'
     },
     products: [{
-        type: mongoose.Schema.Types.ObjectId,
-        required: true,
-        ref: 'Product'
+        product: {
+            type: mongoose.Schema.Types.ObjectId,
+            required: true,
+            ref: 'Product'
+        },
+        quantityordered: {
+            type: Number,
+            default: 1,
+        }
     }]
 })
 
