@@ -10,8 +10,8 @@ const productsRoutes = require('./routes/products');
 const app = express();
 app.use(express.json());
 
-//  mongoose.connect('mongodb+srv://angularProject:angularProject@angularproject-p4l3j.mongodb.net/SouqDB?retryWrites=true&w=majority',
-mongoose.connect('mongodb://localhost:27017/souqappdb',
+mongoose.connect('mongodb+srv://angularProject:angularProject@angularproject-p4l3j.mongodb.net/SouqDB?retryWrites=true&w=majority',
+//mongoose.connect('mongodb://localhost:27017/souqappdb',
     {
         useNewUrlParser: true,
         useUnifiedTopology: true
@@ -25,7 +25,6 @@ app.use('/users', usersRoutes);
 app.use('/orders', ordersRoutes);
 
 app.use('/products', productsRoutes)
-
 
 
 app.listen(3000, () => console.log("Server started at port 3000.."));
