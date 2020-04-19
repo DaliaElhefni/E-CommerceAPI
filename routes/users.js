@@ -43,7 +43,7 @@ const upload = multer({ storage: storage, fileFilter: fileFilter });
 // Input : Full User Schema in Body 
 // Output : Add User To DB
 // add middleware to register with profile photo
-router.post('/register' , upload.single('profileimage'),async(req,res)=>{
+router.post('/register', upload.single('profileimage'), async (req, res) => {
     // Validate Request Body
     let { error } = validateUser(req.body);
     if (error) {
@@ -52,11 +52,12 @@ router.post('/register' , upload.single('profileimage'),async(req,res)=>{
 
 
     // Use Schema
-    let user = new userModel({...req.body  
-    , 
-    profileimage : req.file.path
+    let user = new userModel({
+        ...req.body
+        ,
+        profileimage: req.file.path
     })
-    
+
     // Check if email Already Exists
     let email = user.email;
     await userModel.findOne({ "email": email }, function (error, exists) {
@@ -356,43 +357,41 @@ router.put('/edit/:id', async (req, res) => {
 
 // Input : User ID & One Product Per Time {Product ID} in Body
 // Output :
-router.post('/:id/product', async (req, res) => {
+router.patch('/:id/products', async (req, res) => {
     const { id } = req.params;
     const { error } = validateObjectId(id);
     if (error) {
         res.status(400).send("Invalid UserID");
     }
 
-    // const body = req.body;
-
-    let product = new productModel({ ...req.body });
+    const productIdError = validateObjectId(req.body.product);
+    if (productIdError.error) {
+        res.status(400).send("Invalid product ID");
+    }
 
     // Check if Product Exists in DB
-    // productModel.findById(body.id,function(error,product){
-    //     if(error){
-    //         res.status(401).send("Product Is Sold Out")
-    //     }
-    //     else{
-    //         userModel.findOneAndUpdate(id,product.id);
-    //         console.log()
-    //     }
-    // })
+    const product = await productModel.findById(req.body.product);
+    if (!product) {
+        return res.status(404).send("Product ID is not found!");
+    }
 
-    userModel.findById(id, async function (err, user) {
+    let user = await userModel.findById(id);
+    if (!user) {
+        return res.status(404).send("User does not exist!");
+    }
+    if (user.products.some(p => p.product.toString() === product._id.toString())) {
+        const found = user.products.find(element => element.product.toString() === product._id.toString());
+        found.quantityordered = req.body.quantityordered;
+    }
+    else {
+        user.products.push({ product: product._id, quantityordered: req.body.quantityordered });
+    }
 
-        if (err) {
-            console.log("Error")
-        } else {
-            console.log(user)
-
-            await user.products.push(product.id);
-            await user.save();
-            res.status(200).send("Product Added To cart");
-
-        }
-    })
-
-
+    await user.save().then(function () {
+        res.status(200).send(user);
+    }).catch(function (err) {
+        res.status(500).send(err);
+    });
 })
 
 

@@ -20,20 +20,6 @@ router.get('/', async (req, res) => {
     res.send(orders);
 });
 
-// input: user's cart and orderProducts array
-// output: fill orderProducts array with the products in user's cart
-function fillOrderProducts(userProducts, orderProducts) {
-    userProducts.forEach(function (item) {
-        if (orderProducts.some(p => p.product.toString() === item.toString())) {
-            const found = orderProducts.find(element => element.product.toString() === item.toString());
-            found.quantityordered++;
-        }
-        else {
-            orderProducts.push({ product: item, quantityordered: 1 });
-        }
-    })
-}
-
 // input: orderProducts array
 // output: caluclate total price of an order
 function calculateOrderTotalPrice(products) {
@@ -58,12 +44,16 @@ router.post('/', async (req, res) => {
         return res.status(404).send("User ID is not found!");
     }
 
+    if(user.products.length === 0){
+        return res.status(404).send("The cart is empty!");
+    }
+
     let order = new orderModel({
         ...req.body
     });
 
     // get products from user's cart
-    fillOrderProducts(user.products, order.products);
+    order.products = user.products;
 
     //get products from db to calculate the price and check if they are in stock
     let newProductsList = await Promise.all(order.products.map(async function (e) {
