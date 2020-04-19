@@ -40,8 +40,8 @@ router.post('/', upload.single('productimage'), async (req, res, next) => {
     if (error) { return res.status(400).send(error.details); }
     let product = new productModel({
         ...req.body
-        ,
-        productimage: req.file.path
+        // ,
+        // productimage: req.file.path
     });
     product = await product.save();
     res.send(product);
