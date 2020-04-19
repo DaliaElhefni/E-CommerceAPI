@@ -39,9 +39,15 @@ const userSchema = new Schema({
         default: "NormalUser"
     },
     products: [{
-        type: mongoose.Schema.Types.ObjectId,
-        required: true,
-        ref: 'Product'
+        product: {
+            type: mongoose.Schema.Types.ObjectId,
+            required: true,
+            ref: 'Product'
+        },
+        quantityordered: {
+            type: Number,
+            default: 1,
+        }
     }],
     orders:[{
         type: mongoose.Schema.Types.ObjectId,
