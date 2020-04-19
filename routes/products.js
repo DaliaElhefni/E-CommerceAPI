@@ -27,15 +27,17 @@ const fileFilter = (req, file, callback) => {
 
 const upload = multer({ storage: storage, fileFilter: fileFilter });
 
+// input: nothing
+// output: return all products
 router.get('/', async (req, res) => {
     const products = await productModel.find();
-    console.log(products);
     res.send(products);
 });
 
+// input: request body + product image file
+// output: return added product
 router.post('/', upload.single('productimage'), async (req, res, next) => {
     //validate product
-    console.log(req.file);
     const { error } = ValidateProduct(req.body);
     if (error) { return res.status(400).send(error.details); }
     let product = new productModel({
@@ -47,6 +49,8 @@ router.post('/', upload.single('productimage'), async (req, res, next) => {
     res.send(product);
 });
 
+// input: product id 
+// output: delete product (soft delete)
 router.delete('/:id', async (req, res) => {
     const { id } = req.params;
 
@@ -74,6 +78,8 @@ router.delete('/:id', async (req, res) => {
     });
 });
 
+// input: product id (and maybe an image for the product to be updated)
+// output: update the product
 router.patch('/:id', upload.single('productimage'), async (req, res) => {
     const { id } = req.params;
 
@@ -85,7 +91,6 @@ router.patch('/:id', upload.single('productimage'), async (req, res) => {
         return res.status(404).send("Product ID is not found!");
     }
 
-    console.log(req.body);
     let updatedProduct = Object.assign({}, product._doc, req.body);
     delete updatedProduct._id;
     delete updatedProduct.__v;
@@ -96,18 +101,6 @@ router.patch('/:id', upload.single('productimage'), async (req, res) => {
     //validation for product..
     const productError = ValidateProduct(updatedProduct);
     if (productError.error) { return res.status(400).send(productError.error.details); }
-
-    // await productModel.update({ $set: { details:  req.body.details }},
-    //     { where: { _id: req.params.id } })
-    //     .then((result) => {
-    //         console.log("hii");
-    //         res.json(result);
-    //     })
-    //     .catch((err) => {
-    //         console.log("bye");
-
-    //         res.json(err);
-    //     });
 
     await productModel.findByIdAndUpdate({ '_id': id }, updatedProduct, { new: true }, function (err, result) {
         if (err) {
@@ -120,17 +113,22 @@ router.patch('/:id', upload.single('productimage'), async (req, res) => {
     
 });
 
+// input: nothing
+// output: return products with promotions only
 router.get('/promotions', async (req, res) => {
     const products = await productModel.find({promotion: { $ne: 0 } });
-    console.log(products);
     res.send(products);
 });
 
+// input: get name of product to search for it
+// output: return products that contain the given name
 router.get('/search/:name', async (req, res) => {
     const products = await productModel.find({title: { "$regex": req.params.name, "$options": "i" }});
     res.send(products);
 });
 
+// input: product id
+// output: return specific product
 router.get('/:id', async (req, res) => {
     const { id } = req.params;
 
@@ -141,7 +139,6 @@ router.get('/:id', async (req, res) => {
     if (!product) {
         return res.status(404).send("Product ID is not found!");
     }
-    console.log(product);
     res.send(product);
 });
 

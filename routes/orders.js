@@ -11,7 +11,8 @@ const router = express.Router();
 
 
 
-
+// input: nothing
+// output: return all orders
 router.get('/', async (req, res) => {
     const orders = await orderModel.find({})
         .populate('user')
@@ -19,6 +20,32 @@ router.get('/', async (req, res) => {
     res.send(orders);
 });
 
+// input: user's cart and orderProducts array
+// output: fill orderProducts array with the products in user's cart
+function fillOrderProducts(userProducts, orderProducts) {
+    userProducts.forEach(function (item) {
+        if (orderProducts.some(p => p.product.toString() === item.toString())) {
+            const found = orderProducts.find(element => element.product.toString() === item.toString());
+            found.quantityordered++;
+        }
+        else {
+            orderProducts.push({ product: item, quantityordered: 1 });
+        }
+    })
+}
+
+// input: orderProducts array
+// output: caluclate total price of an order
+function calculateOrderTotalPrice(products) {
+    let totalPrice = 0;
+    products.forEach(function (item) {
+        totalPrice += (item.quantityordered * item.product.price)
+    });
+    return totalPrice;
+}
+
+// input: request body contains addres and userID
+// output: new Order and empty user's cart
 router.post('/', async (req, res) => {
 
     const { error } = validateOrder(req.body);
@@ -31,49 +58,50 @@ router.post('/', async (req, res) => {
         return res.status(404).send("User ID is not found!");
     }
 
-    let productsIDs = req.body.products.map(function (e) {
-        return e.product;
+    let order = new orderModel({
+        ...req.body
     });
-    if (productsIDs.length !== new Set(productsIDs).size) {
-        return res.status(400).send("Duplicate products are not allowed!");
-    }
 
-    //check if products exist
-    let existedIds = await Promise.all(productsIDs.map(async function (e) {
-        if (await productModel.findById(e)) {
-            return true;
-        }
-        return false;
-    }));
-    if (existedIds.includes(false)) {
-        return res.status(404).send("Product ID in products is not found!");
-    }
+    // get products from user's cart
+    fillOrderProducts(user.products, order.products);
 
-    //decrease quantity of products 
-    const orderedQuantitiesLessThanQuantities =  await Promise.all(req.body.products.map(async function (item) {
-        const tempProduct = await productModel.findById(item.product);
-        if (tempProduct.quantity >= item.quantityordered) {
-            return true;
+    //get products from db to calculate the price and check if they are in stock
+    let newProductsList = await Promise.all(order.products.map(async function (e) {
+        const product = await productModel.findById(e.product);
+        if (product.quantity >=  e.quantityordered) {
+            return {product: product, quantityordered: e.quantityordered, inStock: true};
         }
-        return false;
+        return {product: product, quantityordered: e.quantityordered, inStock: false};
     }));
-    if(orderedQuantitiesLessThanQuantities.includes(false)){
+
+    if(newProductsList.some(p => p.inStock === false)){
         return res.status(500).send("Some products are out of stock!");
     }
 
-    req.body.products.forEach(async function (item) {
+    order.products.forEach(async function (item) {
         if (await updateProductQuantity(item, '-')) {
             return res.status(500).send("Order insertion failed!");
         }
     });
 
-    let order = new orderModel({
-        ...req.body
+    //calculate total price
+    order.totalprice = calculateOrderTotalPrice(newProductsList);
+
+    //empty cart and add order to user
+    user.orders.push(order._id);
+    user.products = [];
+    await userModel.findByIdAndUpdate({ '_id': user._id }, user, { new: true }, function (err, result) {
+        if (err) {
+            return res.status(500).send(err);
+        }
     });
+
     order = await order.save();
     res.send(order);
 });
 
+// input: object {productId, quantityOrdered} and operation (+ or -) to update product quantity according to the operation
+// output: product quantity updated in db
 async function updateProductQuantity(item, operation) {
     let product = await productModel.findById(item.product);
     if (operation === '+') {
@@ -89,6 +117,8 @@ async function updateProductQuantity(item, operation) {
     });
 }
 
+// input: order id  =>  used when the order is cancelled
+// output: delete order
 router.delete('/:id', async (req, res) => {
     const { id } = req.params;
     const { error } = validateObjectId(id);
@@ -115,6 +145,8 @@ router.delete('/:id', async (req, res) => {
     });
 });
 
+// input: order id  =>  updating order (users and products are not allowed to be updated)
+// output: update order
 router.patch('/:id', async (req, res) => {
 
     const { id } = req.params;
@@ -133,7 +165,7 @@ router.patch('/:id', async (req, res) => {
         return res.status(400).send(error.details);
     }
 
-    if (req.body.status &&  req.body.status !== order.status && req.body.status === 'rejected') {
+    if (req.body.status && req.body.status !== order.status && req.body.status === 'rejected') {
         //increase quantity of products 
         order.products.forEach(async function (item) {
             if (await updateProductQuantity(item, '+')) {
@@ -152,6 +184,8 @@ router.patch('/:id', async (req, res) => {
     })
 });
 
+// input: order id  =>  get specific order by its id
+// output: order
 router.get('/:id', async (req, res) => {
     const { id } = req.params;
     const { error } = validateObjectId(id);

@@ -7,7 +7,7 @@ const userValidationSchema = Joi.object({
     email: Joi.string().email(),
     password: Joi.string().regex(/^[a-zA-Z0-9]{3,30}$/),
     gender: Joi.any().valid("male", "female"),
-    picture: Joi.string(),
+    profileimage: Joi.string(),
     role: Joi.string(),
     products: Joi.array().items(Joi.objectId()).default([]),
     orders: Joi.array().items(Joi.objectId()).default([])
