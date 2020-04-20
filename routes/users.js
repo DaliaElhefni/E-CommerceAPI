@@ -394,7 +394,40 @@ router.patch('/:id/products', async (req, res) => {
     });
 })
 
+// Input : User ID & One Product  to delete
+// Output : product Deleted 
+router.delete('/:id/products', async (req, res) => {
+    const { id } = req.params;
+    const { error } = validateObjectId(id);
+    if (error) {
+        res.status(400).send("Invalid UserID");
+    }
+    const productIdError = validateObjectId(req.body.product);
+    if (productIdError.error) {
+        res.status(400).send("Invalid product ID");
+    }
+    let user = await userModel.findById(id);
+    let userProducts = await user.products;
+    const product = await productModel.findById(req.body.product);
+      
+    if (!user) {
+        return res.status(404).send("User does not exist!");
+    }
+    if (user.products.some(p => p.product.toString() === product._id.toString())) {
+        const found =userProducts.find(element => element.product.toString() === product._id.toString());
+        found.quantityordered = req.body.quantityordered;
+    }
+    else {
+        userProducts.pop({ product: product._id, quantityordered: req.body.quantityordered });
+    }
+
+    await user.save().then(function () {
+        res.status(200).send(user);
+    }).catch(function (err) {
+        res.status(500).send(err);
+    });
 
 
+})
 
 module.exports = router;
