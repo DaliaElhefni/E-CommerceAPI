@@ -10,8 +10,8 @@ const productsRoutes = require('./routes/products');
 const app = express();
 app.use(express.json());
 
-mongoose.connect('mongodb+srv://angularProject:angularProject@angularproject-p4l3j.mongodb.net/SouqDB?retryWrites=true&w=majority',
-//mongoose.connect('mongodb://localhost:27017/souqappdb',
+// mongoose.connect('mongodb+srv://angularProject:angularProject@angularproject-p4l3j.mongodb.net/SouqDB?retryWrites=true&w=majority',
+mongoose.connect('mongodb://localhost:27017/souqappdb',
     {
         useNewUrlParser: true,
         useUnifiedTopology: true
@@ -20,6 +20,8 @@ mongoose.connect('mongodb+srv://angularProject:angularProject@angularproject-p4l
     .catch(err => console.log('failed to connect to Mongodb ', err.message));
 
 app.use('/uploads', express.static('uploads'));
+app.use('/ProfileImages', express.static('ProfileImages'));
+
 
 app.use('/users', usersRoutes);
 app.use('/orders', ordersRoutes);
