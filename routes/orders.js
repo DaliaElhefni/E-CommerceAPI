@@ -33,7 +33,7 @@ function calculateOrderTotalPrice(products) {
 // input: request body contains addres and userID
 // output: new Order and empty user's cart
 router.post('/', async (req, res) => {
-
+    console.log("Hola")
     const { error } = validateOrder(req.body);
     if (error) {
         return res.status(400).send(error.details);
