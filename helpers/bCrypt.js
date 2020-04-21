@@ -25,6 +25,7 @@ console.log(bodyPassword,dbPassword)
       if (err) {
         reject(err);
       } else if (!isMatch) {
+        console.log(isMatch)
         console.log("hello")
         reject("Password doesn't match!")
       } else {

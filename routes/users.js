@@ -5,11 +5,10 @@ var jwtDecode = require('jwt-decode');
 const Bcrypt = require('../helpers/bCrypt');
 const userModel = require('../models/user');
 const productModel = require('../models/product');
+const orderModel = require('../models/order');
 const validateUser = require('../helpers/validateUser');
 const validateObjectId = require('../helpers/validateObjectId');
 const oktaJwtVerifier = require('@okta/jwt-verifier');
-
-// Push Test 19/4/2020
 
 
 //add package multer to deal with profile image 
@@ -41,7 +40,7 @@ const upload = multer({ storage: storage, fileFilter: fileFilter });
 
 
 // Input : Full User Schema in Body 
-// Output : Add User To DB
+// Output : Add User To DB And send token to Frontend
 // add middleware to register with profile photo
 router.post('/register', upload.single('profileimage'), async (req, res) => {
     // Validate Request Body
@@ -139,14 +138,15 @@ router.post('/login', async (req, res) => {
 })
 
 
-// Input : (Name of The User To Be Searched ,  Admin Token ) in Body
-// Output : (Specific User)
-router.get('/get/:name', async (req, res) => {
+// Input : Name of The User To Be Searched in URL ,  Admin Token in Header
+// Output : Specific User
+router.get('/search/:name', async (req, res) => {
+    const token = req.headers.token;
     const body = req.body;
     const { name } = req.params
-
+    console.log(token)
     // Verify and Decode Token
-    jwt.verify(body.token, 'admin', async function (err, decoded) {
+    jwt.verify(token, 'admin', async function (err, decoded) {
         if (err) {
             res.status(401).send("Invalid Token or You are not Admin")
         } else {
@@ -158,10 +158,10 @@ router.get('/get/:name', async (req, res) => {
 })
 
 
-// Input : User ID & (Admin Token) in Body
+// Input : User ID in Url & Admin Token in Body
 // Output : Specific User
-router.get('/get/:id', async (req, res) => {
-    const body = req.body;
+router.get('/:id', async (req, res) => {   
+    const token = req.headers.token;
     const { id } = req.params;
     const { error } = validateObjectId(id);
     if (error) {
@@ -169,7 +169,7 @@ router.get('/get/:id', async (req, res) => {
     }
 
     // Verify and Decode Token
-    jwt.verify(body.token, 'admin', async function (err, decoded) {
+    jwt.verify(token, 'admin', async function (err, decoded) {
         if (err) {
             res.status(401).send("Invalid Token or You are not Admin")
         } else {
@@ -180,17 +180,18 @@ router.get('/get/:id', async (req, res) => {
 
 })
 
-// Input : (Admin Token) in Body
+// Input : Admin Token in Header
 // Output : All Users
-router.get('/get/all', async (req, res) => {
+router.get('/', async (req, res) => {
 
-    const body = req.body;
+    const token = req.headers.token;
 
     // Verify and Decode Token
-    jwt.verify(body.token, 'admin', async function (err, decoded) {
+    jwt.verify(token, 'admin', async function (err, decoded) {
         if (err) {
             res.status(401).send("Invalid Token or You are not Admin")
         } else {
+            console.log("Hola")
             let user = await userModel.find();
             res.status(200).send(user)
         }
@@ -199,24 +200,24 @@ router.get('/get/all', async (req, res) => {
 
 })
 
-// Input : User ID and (User or Admin Token in Body)
+// Input :  User or Admin Token in Header
 // Output : User's Products
 router.get('/:id/products', async (req, res) => {
 
-    //const body = req.body;
+    const token = req.headers.token;
     const { id } = req.params;
 
+    // console.log(token)
 
     // Verify and Decode Token
-    jwt.verify(body.token, 'user', async function (err, decoded) {
-        if (err) {
-            res.status(401).send("Invalid Token or You are not The User")
-        } else {
-            userModel.findById(decoded.subject, async function (error, user) {
-                if (error) {
+try{
+ var decodedToken = await jwtDecode(token);
+ userModel.findById(decodedToken.subject, async function (error, user) {
+    //  console.log(decodedToken)
+                if (!user) {
                     res.status(401).send("Invalid User ID or User Not found")
-                } else {
-                    await user.populate('products', function (error, success) {
+                } else if(user) {
+                    await user.populate('products.product', function (error, success) {
                         if (error) {
                             res.status(401).send("Error Populating")
                         }
@@ -227,95 +228,100 @@ router.get('/:id/products', async (req, res) => {
 
                 }
             })
+}catch{
+    res.status(401).send("Invalid Token or You are not The User") 
+}
 
-        }
+    
     });
 
-    // // Get User Token
+  
+// Input : User or Admin Token in Header
+// Output : User's Orders
+router.get('/:id/orders', async (req, res) => {
+
+    const token = req.headers.token;
+    const { id } = req.params;
+
+    // Verify and Decode Token
+try{
+ var decodedToken = await jwtDecode(token);
+ userModel.findById(decodedToken.subject, async function (error, user) {
+                if (!user) {
+                    res.status(401).send("Invalid User ID or User Not found")
+                } else if(user) {
+                    await user.populate('orders', function (error, success) {
+                        if (error) {
+                            res.status(401).send("Error Populating")
+                        }
+                        else {
+                            res.status(401).send(success.orders)
+                        }
+                    });
+
+                }
+            })
+}catch{
+    res.status(401).send("Invalid Token or You are not The User") 
+}
+
+    // const body = req.body;
+
     // const userID = jwtDecode(body.token);
 
-    // userModel.findById(userID, async function (error, user) {
+    // userModel.findById(userID.subject, function (error, user) {
     //     if (error) {
     //         res.status(401).send("Invalid User")
     //     } else {
-    //         await user.populate('products', function (error, success) {
-    //             if (error) {
-    //                 res.status(401).send("Error Populating")
-    //             }
-    //             else {
-    //                 res.status(401).send(success.products)
-    //             }
-    //         });
-
+    //         res.status(401).send(user.orders)
     //     }
     // })
 
 
-})
-
-// Input : (User or Admin Token) in Body
-// Output : User's Orders
-router.get('/:id/orders', async (req, res) => {
-
-    const body = req.body;
-
-    const userID = jwtDecode(body.token);
-
-    userModel.findById(userID.subject, function (error, user) {
-        if (error) {
-            res.status(401).send("Invalid User")
-        } else {
-            res.status(401).send(user.orders)
-        }
-    })
-
 
 })
 
-// Input : User ID and (Admin Token) in body
+// Input : User ID in URL and (Admin Token) in Header
 // Output : Deletion Confirmation
 router.delete('/:id', async (req, res) => {
 
     const { id } = req.params;
-    const body = req.body;
+    const token = req.headers.token;
     const { error } = validateObjectId(id);
     if (error) {
         return res.status(500).send("Invalid User ID");
     }
+// console.log(token)
 
-    if (body.token) {
-        const adminToken = jwtDecode(body.token)
 
-        userModel.findById(adminToken.subject, function (error, user) {
-            if (error) {
-                res.status(401).send("Invalid Admin ID")
-            } else {
-                if (user.role == "admin") {
-                    userModel.findByIdAndDelete(id, function (error, success) {
-                        if (!success) {
-                            res.status(401).send("User Is Not Found")
-                        } else if (success) {
-                            res.status(401).send("Deleted Succesfully")
-                        }
-                    });
-                }
-                else {
-                    res.status(401).send("You are not and Admin")
-                }
-            }
-
-        })
+// Verify and Decode Token
+jwt.verify(token, 'admin', async function (err, decoded) {
+    if (err) {
+        res.status(401).send("Invalid Token or You are not Admin")
+    } else {
+        userModel.findByIdAndDelete(id, function (error, success) {
+        if (!success) {
+                 res.status(401).send("User Is Not Found")
+             } else if (success) {
+                 orderModel.deleteMany({user:success.id},function(error,success){
+                     if(error){
+                        res.status(401).send("Error Deleting")
+                     }else
+                     {
+                         res.status(401).send("Deleted Succesfully")
+                     }
+                 });
+             }
+         });
     }
-    else {
-        res.status(401).send("No Token Sent")
+});
 
-    }
 
 })
 
 // Input : (User ID) And (Input To be Modified) in Body
 // Output : Message
-router.put('/edit/:id', async (req, res) => {
+router.put('/:id', async (req, res) => {
     const { id } = req.params;
     const { error } = validateObjectId(id);
     if (error) {
@@ -349,7 +355,7 @@ router.put('/edit/:id', async (req, res) => {
         if (error) {
             res.status(401).send("Error Can't Update")
         } else {
-            res.status(401).send("Updated Succesfuly")
+            res.status(200).send("Updated Succesfuly")
         }
     })
 
