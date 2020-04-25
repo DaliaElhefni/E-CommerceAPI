@@ -9,7 +9,7 @@ const orderModel = require('../models/order');
 const validateUser = require('../helpers/validateUser');
 const validateObjectId = require('../helpers/validateObjectId');
 const oktaJwtVerifier = require('@okta/jwt-verifier');
-
+const verify = require('../helpers/validateToken');
 
 //add package multer to deal with profile image 
 const multer = require('multer');
@@ -140,20 +140,16 @@ router.post('/login', async (req, res) => {
 
 // Input : Name of The User To Be Searched in URL ,  Admin Token in Header
 // Output : Specific User
-router.get('/search/:name', async (req, res) => {
-    const token = req.headers.token;
-    const body = req.body;
+router.get('/search/:name', verify.verifyAdmin, async (req, res) => {
     const { name } = req.params
-    console.log(token)
-    // Verify and Decode Token
-    jwt.verify(token, 'admin', async function (err, decoded) {
-        if (err) {
-            res.status(401).send("Invalid Token or You are not Admin")
-        } else {
-            let user = await userModel.find({ username: name });
-            res.status(200).send(user)
+    userModel.find({username:name},function(error,exists){
+        if(error){
+    res.status(401).send("User Not found")   
+        }else if(exists){
+            res.status(200).send(exists);   
         }
-    });
+    })
+
 
 })
 
@@ -202,37 +198,22 @@ router.get('/', async (req, res) => {
 
 // Input :  User or Admin Token in Header
 // Output : User's Products
-router.get('/:id/products', async (req, res) => {
+router.get('/:id/products',verify.verifyToken, async (req, res) => {
 
-    const token = req.headers.token;
-    const { id } = req.params;
-
-    // console.log(token)
-
-    // Verify and Decode Token
-try{
- var decodedToken = await jwtDecode(token);
- userModel.findById(decodedToken.subject, async function (error, user) {
-    //  console.log(decodedToken)
-                if (!user) {
-                    res.status(401).send("Invalid User ID or User Not found")
-                } else if(user) {
-                    await user.populate('products.product', function (error, success) {
-                        if (error) {
-                            res.status(401).send("Error Populating")
-                        }
-                        else {
-                            res.status(401).send(success.products)
-                        }
-                    });
-
-                }
-            })
-}catch{
-    res.status(401).send("Invalid Token or You are not The User") 
-}
-
-    
+    userModel.findById(req.userId,async function(error,exists){
+        if(!exists){
+             res.status(401).send("Invalid User ID or User Not found")
+        }else if(exists){
+            await exists.populate('products.product', function (error, success) {
+             if (error) {
+                 res.status(401).send("Error Populating")
+             }
+             else {
+                 res.status(401).send(success.products)
+             }
+         });
+        }
+    })
     });
 
   
