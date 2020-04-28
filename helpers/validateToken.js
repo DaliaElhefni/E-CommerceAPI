@@ -1,47 +1,76 @@
+const userModel = require('../models/user');
 const jwt = require('jsonwebtoken');
 var jwtDecode = require('jwt-decode');
+const accessTokenSecret = 'ahmedreemdalia';
 
 
-function verifyAdmin(req,res,next){
-let token = req.headers.token;
+async function CheckIfUserExixts(id) {
+    let user = await userModel.findById(id);
+    if (user) {
+        return true;
+    }
+    return false;
+}
 
-    if(!token){
-    res.status(401).send("Token Doesn't Exist");
-}else if(token === null){
-    res.status(401).send("Token Doesn't Exist");
-}else{
-    jwt.verify(token, 'admin', async function (err, decoded) {
+function verifyAdmin(req, res, next) {
+    let token = req.headers.token;
+
+    if (!token) {
+        res.status(401).send("Token Doesn't Exist");
+    }
+    else if (token === null) {
+        res.status(401).send("Token Doesn't Exist");
+    }
+    else {
+        jwt.verify(token, accessTokenSecret, async function (err, decoded) {
             if (err) {
-                res.status(401).send("Invalid Token or You are not Admin")
-            } else {
-                req.userId = decoded.subject;
-                next();
+                res.status(403).send("Invalid Token");
+            }
+            else if (decoded.role !== "admin") {
+                res.status(401).send("You are not Admin");
+            }
+            else {
+                if (CheckIfUserExixts(decoded.subject)) {
+                    req.userId = decoded.subject;
+                    req.userRole = decoded.role;
+                    next();
+                }
+                else{
+                    res.status(404).send("This user does not exist!");
+                }
             }
         });
-    
-}
+    }
 }
 
-function verifyToken(req,res,next){
+function verifyToken(req, res, next) {
     let token = req.headers.token;
-    
-        if(!token){
-        res.status(401).send("Token Doesn't Exist");
-    }else if(token === null){
-        res.status(401).send("Token Doesn't Exist");
-    }else{
-       try{ 
-       let decodedToken = jwt.decode(token)
-       req.userId = decodedToken.subject;
-        next();
-       }catch{
-        res.status(401).send("Invalid Token Error");
 
-       }
+    if (!token) {
+        res.status(401).send("Token Doesn't Exist");
+    } else if (token === null) {
+        res.status(401).send("Token Doesn't Exist");
+    } else {
+        jwt.verify(token, accessTokenSecret, async function (err, decoded) {
+            if (err) {
+                res.status(403).send("Invalid Token");
+            }
+            else {
+                if (CheckIfUserExixts(decoded.subject)) {
+                    req.userId = decoded.subject;
+                    req.userRole = decoded.role;
+                    next();
+                }
+                else{
+                    res.status(404).send("This user does not exist!");
+                }
+            }
+        });
     }
-    }
+}
 
 module.exports = {
-    verifyAdmin : verifyAdmin,
-    verifyToken : verifyToken
+    verifyAdmin: verifyAdmin,
+    verifyToken: verifyToken,
+    accessTokenSecret: accessTokenSecret
 };
