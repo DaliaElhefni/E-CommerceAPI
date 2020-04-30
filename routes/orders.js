@@ -126,6 +126,10 @@ router.delete('/:id', verify.verifyToken, async (req, res) => {
         }
     });
 
+    let user  = await userModel.findById(order.user);
+    user.orders.pop(order._id);
+    await user.save();
+
     await orderModel.deleteOne({ _id: id }, function (err, result) {
         if (err) {
             return res.status(500).send(err);
