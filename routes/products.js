@@ -30,6 +30,7 @@ const upload = multer({ storage: storage, fileFilter: fileFilter });
 
 // input: nothing
 // output: return all products
+// router.get('/', verify.verifyToken, async (req, res) => {
 router.get('/', async (req, res) => {
     const products = await productModel.find();
     res.send(products);
@@ -52,7 +53,8 @@ router.post('/', [upload.single('productimage'), verify.verifyAdmin], async (req
 
 // input: product id 
 // output: delete product (soft delete)
-router.delete('/:id', verify.verifyAdmin, async (req, res) => {
+// router.delete('/:id', verify.verifyAdmin, async (req, res) => {
+router.delete('/:id', async (req, res) => {
     const { id } = req.params;
 
     const { error } = ValidateobjectId(id);
@@ -76,7 +78,8 @@ router.delete('/:id', verify.verifyAdmin, async (req, res) => {
 
 // input: product id (and maybe an image for the product to be updated)
 // output: update the product
-router.patch('/:id', [upload.single('productimage'), verify.verifyAdmin], async (req, res) => {
+// router.patch('/:id', [upload.single('productimage'), verify.verifyAdmin], async (req, res) => {
+router.patch('/:id', upload.single('productimage'), async (req, res) => {
     const { id } = req.params;
 
     const { error } = ValidateobjectId(id);
@@ -118,14 +121,16 @@ router.get('/promotions', async (req, res) => {
 
 // input: get name of product to search for it
 // output: return products that contain the given name
-router.get('/search/:name', verify.verifyToken, async (req, res) => {
+// router.get('/search/:name', verify.verifyToken, async (req, res) => {
+router.get('/search/:name', async (req, res) => {
     const products = await productModel.find({title: { "$regex": req.params.name, "$options": "i" }});
     res.send(products);
 });
 
 // input: product id
 // output: return specific product
-router.get('/:id', verify.verifyToken, async (req, res) => {
+// router.get('/:id', verify.verifyToken, async (req, res) => {
+router.get('/:id', async (req, res) => {
     const { id } = req.params;
 
     const { error } = ValidateobjectId(id);

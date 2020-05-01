@@ -14,7 +14,8 @@ const router = express.Router();
 
 // input: nothing
 // output: return all orders
-router.get('/', verify.verifyAdmin, async (req, res) => {
+// router.get('/', verify.verifyAdmin, async (req, res) => {
+router.get('/', async (req, res) => {
     const orders = await orderModel.find({})
         .populate('user')
         .populate('products.product');
@@ -33,7 +34,8 @@ function calculateOrderTotalPrice(products) {
 
 // input: request body contains addres and userID
 // output: new Order and empty user's cart
-router.post('/', verify.verifyToken, async (req, res) => {
+// router.post('/', verify.verifyToken, async (req, res) => {
+router.post('/', async (req, res) => {
     const { error } = validateOrder(req.body);
     if (error) {
         return res.status(400).send(error.details);
@@ -109,7 +111,8 @@ async function updateProductQuantity(item, operation) {
 
 // input: order id  =>  used when the order is cancelled
 // output: delete order
-router.delete('/:id', verify.verifyToken, async (req, res) => {
+// router.delete('/:id', verify.verifyToken, async (req, res) => {
+router.delete('/:id', async (req, res) => {
     const { id } = req.params;
     const { error } = validateObjectId(id);
     if (error) {
@@ -127,7 +130,7 @@ router.delete('/:id', verify.verifyToken, async (req, res) => {
     });
 
     let user  = await userModel.findById(order.user);
-    user.orders.pop(order._id);
+    user.orders = user.orders.filter(o=> o._id !== order._id);
     await user.save();
 
     await orderModel.deleteOne({ _id: id }, function (err, result) {
@@ -141,7 +144,8 @@ router.delete('/:id', verify.verifyToken, async (req, res) => {
 
 // input: order id  =>  updating order (users and products are not allowed to be updated)
 // output: update order
-router.patch('/:id', verify.verifyToken, async (req, res) => {
+// router.patch('/:id', verify.verifyToken, async (req, res) => {
+router.patch('/:id', async (req, res) => {
 
     const { id } = req.params;
     const idError = validateObjectId(id);
@@ -153,8 +157,13 @@ router.patch('/:id', verify.verifyToken, async (req, res) => {
     if (!order) {
         return res.status(404).send("Order ID is not found!");
     }
-
-    const { error } = validateUpdatedOrder(req.body);
+    let tempOrder = {
+        status: req.body.status,
+        date:  req.body.date,
+        address:  req.body.address,
+        totalprice:  req.body.totalprice
+    }
+    const { error } = validateUpdatedOrder(tempOrder);
     if (error) {
         return res.status(400).send(error.details);
     }
@@ -167,23 +176,24 @@ router.patch('/:id', verify.verifyToken, async (req, res) => {
             }
         });
     }
-    else{
-        res.status(400).send("Rejecting order failed!");
+    else if(req.body.status === 'rejected'){
+        return res.status(400).send("Rejecting order failed!");
     }
 
     await orderModel.findByIdAndUpdate({ '_id': id }, req.body, { new: true }, function (err, result) {
         if (err) {
-            res.status(500).send(err);
+            return res.status(500).send(err);
         }
         else {
-            res.send(result);
+            return res.send(result);
         }
     });
 });
 
 // input: order id  =>  get specific order by its id
 // output: order
-router.get('/:id', verify.verifyToken, async (req, res) => {
+// router.get('/:id', verify.verifyToken, async (req, res) => {
+router.get('/:id', async (req, res) => {
     const { id } = req.params;
     const { error } = validateObjectId(id);
     if (error) {

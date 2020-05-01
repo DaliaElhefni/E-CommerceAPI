@@ -142,7 +142,8 @@ router.post('/login', async (req, res) => {
 
 // Input : Name of The User To Be Searched in URL ,  Admin Token in Header
 // Output : Specific User
-router.get('/search/:name', verify.verifyAdmin, async (req, res) => {
+// router.get('/search/:name', verify.verifyAdmin, async (req, res) => {
+router.get('/search/:name', async (req, res) => {
     const { name } = req.params;
     await userModel.find({ username: name }, function (error, exists) {
         if (error) {
@@ -160,7 +161,8 @@ router.get('/search/:name', verify.verifyAdmin, async (req, res) => {
 
 // Input : User ID in Url & Admin Token in Body
 // Output : Specific User
-router.get('/:id', verify.verifyAdmin, async (req, res) => {
+// router.get('/:id', verify.verifyAdmin, async (req, res) => {
+router.get('/:id', async (req, res) => {
     const { id } = req.params;
     const { error } = validateObjectId(id);
     if (error) {
@@ -175,14 +177,16 @@ router.get('/:id', verify.verifyAdmin, async (req, res) => {
 
 // Input : Admin Token in Header
 // Output : All Users
-router.get('/', verify.verifyAdmin, async (req, res) => {
+// router.get('/', verify.verifyAdmin, async (req, res) => {
+router.get('/', async (req, res) => {
     let user = await userModel.find();
     res.status(200).send(user);
 });
 
 // Input :  User or Admin Token in Header
 // Output : User's Products
-router.get('/:id/products', verify.verifyToken, async (req, res) => {
+// router.get('/:id/products', verify.verifyToken, async (req, res) => {
+router.get('/:id/products', async (req, res) => {
 
     await userModel.findById(req.userId, async function (error, exists) {
         if (!exists) {
@@ -201,11 +205,12 @@ router.get('/:id/products', verify.verifyToken, async (req, res) => {
     });
 });
 
-
 // Input : User or Admin Token in Header
 // Output : User's Orders
-router.get('/:id/orders', verify.verifyToken, async (req, res) => {
-    await userModel.findById(req.userId, async function (error, user) {
+// router.get('/:id/orders', verify.verifyToken, async (req, res) => {
+router.get('/:id/orders', async (req, res) => {
+    const {id} = req.params;
+    await userModel.findById(id, async function (error, user) {
         if (!user) {
             res.status(404).send("User Not Found");
         }
@@ -224,7 +229,8 @@ router.get('/:id/orders', verify.verifyToken, async (req, res) => {
 
 // Input : User ID in URL and (Admin Token) in Header
 // Output : Deletion Confirmation
-router.delete('/:id', verify.verifyAdmin, async (req, res) => {
+// router.delete('/:id', verify.verifyAdmin, async (req, res) => {
+router.delete('/:id', async (req, res) => {
     const { id } = req.params;
     const { error } = validateObjectId(id);
     if (error) {
@@ -247,7 +253,8 @@ router.delete('/:id', verify.verifyAdmin, async (req, res) => {
 
 // Input : (User ID) And (Input To be Modified) in Body
 // Output : Message
-router.put('/:id', verify.verifyToken, async (req, res) => {
+// router.put('/:id', verify.verifyToken, async (req, res) => {
+router.put('/:id', async (req, res) => {
     const { id } = req.params;
     const { error } = validateObjectId(id);
     if (error) {
@@ -294,7 +301,8 @@ router.put('/:id', verify.verifyToken, async (req, res) => {
 
 // Input : User ID & One Product Per Time {Product ID} in Body
 // Output :
-router.patch('/:id/products', verify.verifyToken, async (req, res) => {
+// router.patch('/:id/products', verify.verifyToken, async (req, res) => {
+router.patch('/:id/products', async (req, res) => {
     const { id } = req.params;
     const { error } = validateObjectId(id);
     if (error) {
@@ -335,7 +343,8 @@ router.patch('/:id/products', verify.verifyToken, async (req, res) => {
 
 // Input : User ID & One Product  to delete
 // Output : product Deleted 
-router.delete('/:id/products', verify.verifyToken, async (req, res) => {
+// router.delete('/:id/products', verify.verifyToken, async (req, res) => {
+router.delete('/:id/products', async (req, res) => {
     const { id } = req.params;
     const { error } = validateObjectId(id);
     if (error) {
@@ -353,8 +362,7 @@ router.delete('/:id/products', verify.verifyToken, async (req, res) => {
         return res.status(404).send("User does not exist!");
     }
     if (user.products.some(p => p.product.toString() === product._id.toString())) {
-        const found = userProducts.find(element => element.product.toString() === product._id.toString());
-        userProducts.pop(found);
+        userProducts = userProducts.filter(element => element.product.toString() !== product._id.toString());
     }
     else {
         res.status(404).send("Product is not found!");
