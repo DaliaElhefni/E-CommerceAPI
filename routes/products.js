@@ -38,12 +38,13 @@ router.get('/', async (req, res) => {
 // output: return added product
 router.post('/', upload.single('productimage'), async (req, res, next) => {
     //validate product
-    const { error } = ValidateProduct(req.body);
-    if (error) { return res.status(400).send(error.details); }
+    console.log(req.file);
+     const { error } = ValidateProduct(req.body);
+     if (error) { return res.status(400).send(error.details); }
     let product = new productModel({
         ...req.body
-        // ,
-        // productimage: req.file.path
+        ,
+        productimage: req.file.originalname
     });
     product = await product.save();
     res.send(product);

@@ -10,14 +10,27 @@ const productsRoutes = require('./routes/products');
 const app = express();
 app.use(express.json());
 
-mongoose.connect('mongodb+srv://angularProject:angularProject@angularproject-p4l3j.mongodb.net/SouqDB?retryWrites=true&w=majority',
-// mongoose.connect('mongodb://localhost:27017/souqappdb',
+// mongoose.connect('mongodb+srv://angularProject:angularProject@angularproject-p4l3j.mongodb.net/SouqDB?retryWrites=true&w=majority',
+mongoose.connect('mongodb://localhost:27017/souqappdb',
     {
         useNewUrlParser: true,
         useUnifiedTopology: true
     }
 ).then(() => console.log('connected to MongoDb..'))
     .catch(err => console.log('failed to connect to Mongodb ', err.message));
+
+
+// to Handel Cors Error and allow any client to access api url 
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Headers', 'Origin , X-Requested-with , Content-Type , Accept , Authorization');
+
+    if (req.method === 'OPTIONS') {
+        res.header('Access-Control-Allow-Methods', 'PUT , POST , GET , DELETE , PATCH')
+        return res.status(200).json({});
+    }
+    next();
+});
 
 app.use('/uploads', express.static('uploads'));
 app.use('/ProfileImages', express.static('ProfileImages'));

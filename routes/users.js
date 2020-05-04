@@ -55,7 +55,7 @@ router.post('/register', upload.single('profileimage'), async (req, res) => {
     let user = new userModel({
         ...req.body
         ,
-        profileimage: req.file.path
+        profileimage: req.file.originalname
     })
 
     // Check if email Already Exists
