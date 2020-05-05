@@ -3,6 +3,7 @@ const router = express.Router();
 const productModel = require('../models/product');
 const ValidateProduct = require('../Helpers/validateProduct');
 const ValidateobjectId = require('../Helpers/validateObjectId');
+const verify = require('../helpers/validateToken');
 const multer = require('multer');
 
 const storage = multer.diskStorage({
@@ -29,6 +30,7 @@ const upload = multer({ storage: storage, fileFilter: fileFilter });
 
 // input: nothing
 // output: return all products
+// router.get('/', verify.verifyToken, async (req, res) => {
 router.get('/', async (req, res) => {
     const products = await productModel.find();
     res.send(products);
@@ -36,7 +38,7 @@ router.get('/', async (req, res) => {
 
 // input: request body + product image file
 // output: return added product
-router.post('/', upload.single('productimage'), async (req, res, next) => {
+router.post('/', [upload.single('productimage'), verify.verifyAdmin], async (req, res, next) => {
     //validate product
     console.log(req.file);
      const { error } = ValidateProduct(req.body);
@@ -52,6 +54,7 @@ router.post('/', upload.single('productimage'), async (req, res, next) => {
 
 // input: product id 
 // output: delete product (soft delete)
+// router.delete('/:id', verify.verifyAdmin, async (req, res) => {
 router.delete('/:id', async (req, res) => {
     const { id } = req.params;
 
@@ -64,11 +67,6 @@ router.delete('/:id', async (req, res) => {
     }
     product.isdeleted = true;
 
-    // const message = await productModel
-    //     .findByIdAndRemove(req.params.id)
-    //     .then(() => 'Product Deleted Successfully!');
-
-    // res.json({ message});
     await productModel.findByIdAndUpdate({ '_id': id }, product, { new: true }, function (err, result) {
         if (err) {
             return res.status(500).send(err);
@@ -81,6 +79,7 @@ router.delete('/:id', async (req, res) => {
 
 // input: product id (and maybe an image for the product to be updated)
 // output: update the product
+// router.patch('/:id', [upload.single('productimage'), verify.verifyAdmin], async (req, res) => {
 router.patch('/:id', upload.single('productimage'), async (req, res) => {
     const { id } = req.params;
 
@@ -123,6 +122,7 @@ router.get('/promotions', async (req, res) => {
 
 // input: get name of product to search for it
 // output: return products that contain the given name
+// router.get('/search/:name', verify.verifyToken, async (req, res) => {
 router.get('/search/:name', async (req, res) => {
     const products = await productModel.find({title: { "$regex": req.params.name, "$options": "i" }});
     res.send(products);
@@ -130,6 +130,7 @@ router.get('/search/:name', async (req, res) => {
 
 // input: product id
 // output: return specific product
+// router.get('/:id', verify.verifyToken, async (req, res) => {
 router.get('/:id', async (req, res) => {
     const { id } = req.params;
 

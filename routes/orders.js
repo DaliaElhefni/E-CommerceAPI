@@ -7,12 +7,14 @@ const productModel = require('../models/product');
 const validateOrder = require('../helpers/validateOrder');
 const validateObjectId = require('../helpers/validateObjectId');
 const validateUpdatedOrder = require('../helpers/validateUpdatedOrder');
+const verify = require('../helpers/validateToken');
 const router = express.Router();
 
 
 
 // input: nothing
 // output: return all orders
+// router.get('/', verify.verifyAdmin, async (req, res) => {
 router.get('/', async (req, res) => {
     const orders = await orderModel.find({})
         .populate('user')
@@ -32,8 +34,8 @@ function calculateOrderTotalPrice(products) {
 
 // input: request body contains addres and userID
 // output: new Order and empty user's cart
+// router.post('/', verify.verifyToken, async (req, res) => {
 router.post('/', async (req, res) => {
-
     const { error } = validateOrder(req.body);
     if (error) {
         return res.status(400).send(error.details);
@@ -109,6 +111,7 @@ async function updateProductQuantity(item, operation) {
 
 // input: order id  =>  used when the order is cancelled
 // output: delete order
+// router.delete('/:id', verify.verifyToken, async (req, res) => {
 router.delete('/:id', async (req, res) => {
     const { id } = req.params;
     const { error } = validateObjectId(id);
@@ -126,6 +129,10 @@ router.delete('/:id', async (req, res) => {
         }
     });
 
+    let user  = await userModel.findById(order.user);
+    user.orders = user.orders.filter(o=> o._id !== order._id);
+    await user.save();
+
     await orderModel.deleteOne({ _id: id }, function (err, result) {
         if (err) {
             return res.status(500).send(err);
@@ -137,6 +144,7 @@ router.delete('/:id', async (req, res) => {
 
 // input: order id  =>  updating order (users and products are not allowed to be updated)
 // output: update order
+// router.patch('/:id', verify.verifyToken, async (req, res) => {
 router.patch('/:id', async (req, res) => {
 
     const { id } = req.params;
@@ -149,13 +157,18 @@ router.patch('/:id', async (req, res) => {
     if (!order) {
         return res.status(404).send("Order ID is not found!");
     }
-
-    const { error } = validateUpdatedOrder(req.body);
+    let tempOrder = {
+        status: req.body.status,
+        date:  req.body.date,
+        address:  req.body.address,
+        totalprice:  req.body.totalprice
+    }
+    const { error } = validateUpdatedOrder(tempOrder);
     if (error) {
         return res.status(400).send(error.details);
     }
 
-    if (req.body.status && req.body.status !== order.status && req.body.status === 'rejected') {
+    if (req.body.status && req.body.status !== order.status && req.body.status === 'rejected' && req.userRole === "admin") {
         //increase quantity of products 
         order.products.forEach(async function (item) {
             if (await updateProductQuantity(item, '+')) {
@@ -163,19 +176,23 @@ router.patch('/:id', async (req, res) => {
             }
         });
     }
+    else if(req.body.status === 'rejected'){
+        return res.status(400).send("Rejecting order failed!");
+    }
 
     await orderModel.findByIdAndUpdate({ '_id': id }, req.body, { new: true }, function (err, result) {
         if (err) {
-            res.status(500).send(err);
+            return res.status(500).send(err);
         }
         else {
-            res.send(result);
+            return res.send(result);
         }
-    })
+    });
 });
 
 // input: order id  =>  get specific order by its id
 // output: order
+// router.get('/:id', verify.verifyToken, async (req, res) => {
 router.get('/:id', async (req, res) => {
     const { id } = req.params;
     const { error } = validateObjectId(id);
