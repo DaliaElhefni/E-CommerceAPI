@@ -45,13 +45,17 @@ const upload = multer({ storage: storage, fileFilter: fileFilter });
 // add middleware to register with profile photo
 router.post('/register', upload.single('profileimage'), async (req, res) => {
     console.log(req.body)
+    const body = req.body;
     // console.log(req.file)
     // console.log(req.headers.authorization)
     // Validate Request Body
+    if(!('password' in body && 'email' in body) ){
+        return res.status(400).send("Invalid User Schema")
+    }
     let { error } = validateUser(req.body);
     if (error) {
         console.log(error.details)
-        return res.status(401).send("Something Wrong with The user Model");
+        return res.status(400).send("Something Wrong with The user Model");
     }
 
 
@@ -128,10 +132,10 @@ router.post('/login', async (req, res) => {
     let body = req.body;
     await userModel.findOne({ "email": body.email }, async function (error, user) {
         if (error) {
-            res.status(500).send("Hola");
+            return res.status(500).send("Hola");
         }
         else if (!user) {
-            res.status(404).send("E-mail Doesn't Exist, Try Signing up first");
+           return res.status(404).send("E-mail Doesn't Exist, Try Signing up first");
         }
         else if (user) {
             // Compare passwords and return user if success
@@ -299,7 +303,12 @@ router.put('/:id', verify.verifyToken,upload.single('profileimage'), async (req,
     }
 
     let body = req.body;
-    
+
+    // validate user
+    let userError = validateUser(req.body);
+    if (userError.error) {
+        return res.status(400).send(userError.error.details);
+    }
 
     //check if there is a role in the body
     // if There is admin already in DB make The role = user
@@ -315,6 +324,7 @@ router.put('/:id', verify.verifyToken,upload.single('profileimage'), async (req,
 
     if ('password' in body) {
         // hash the password
+<<<<<<< HEAD
        await Bcrypt.hashPassword(body.password)
         .then((hashValue) => {
             body.password = hashValue;
@@ -328,6 +338,19 @@ router.put('/:id', verify.verifyToken,upload.single('profileimage'), async (req,
         if (error) {
             res.status(500).send("Error Can't Update");
         } else if(success) {
+=======
+        Bcrypt.hashPassword(body.password)
+            .then((hashValue) => {
+                body.password = hashValue;
+            })
+            .catch((err) => { res.send(err) });
+    }
+
+    await userModel.findByIdAndUpdate(id, body, function (error, success) {
+        if (error) {
+            res.status(500).send("Error Can't Update");
+        } else {
+>>>>>>> a66dd1305a8bcdab9a36f174eeee799a36d7aae0
             res.status(200).send("Updated Succesfuly");
         }
     });
@@ -394,8 +417,7 @@ router.delete('/:id/products', verify.verifyToken, async (req, res) => {
         return res.status(404).send("User does not exist!");
     }
     if (user.products.some(p => p.product.toString() === product._id.toString())) {
-        const found = userProducts.find(element => element.product.toString() === product._id.toString());
-        userProducts.pop(found);
+        userProducts = userProducts.filter(element => element.product.toString() !== product._id.toString());
     }
     else {
         res.status(404).send("Product is not found!");

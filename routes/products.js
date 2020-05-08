@@ -30,7 +30,7 @@ const upload = multer({ storage: storage, fileFilter: fileFilter });
 
 // input: nothing
 // output: return all products
-router.get('/', async (req, res) => {
+router.get('/', verify.verifyToken, async (req, res) => {
     const products = await productModel.find();
     res.send(products);
 });
@@ -39,12 +39,13 @@ router.get('/', async (req, res) => {
 // output: return added product
 router.post('/', [upload.single('productimage'), verify.verifyAdmin], async (req, res, next) => {
     //validate product
-    const { error } = ValidateProduct(req.body);
-    if (error) { return res.status(400).send(error.details); }
+    console.log(req.file);
+     const { error } = ValidateProduct(req.body);
+     if (error) { return res.status(400).send(error.details); }
     let product = new productModel({
         ...req.body
         ,
-        productimage: req.file.path
+        productimage: req.file.originalname
     });
     product = await product.save();
     res.send(product);

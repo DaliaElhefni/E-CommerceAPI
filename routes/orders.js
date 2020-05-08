@@ -127,7 +127,7 @@ router.delete('/:id', verify.verifyToken, async (req, res) => {
     });
 
     let user  = await userModel.findById(order.user);
-    user.orders.pop(order._id);
+    user.orders = user.orders.filter(o=> o._id !== order._id);
     await user.save();
 
     await orderModel.deleteOne({ _id: id }, function (err, result) {
@@ -153,8 +153,13 @@ router.patch('/:id', verify.verifyToken, async (req, res) => {
     if (!order) {
         return res.status(404).send("Order ID is not found!");
     }
-
-    const { error } = validateUpdatedOrder(req.body);
+    let tempOrder = {
+        status: req.body.status,
+        date:  req.body.date,
+        address:  req.body.address,
+        totalprice:  req.body.totalprice
+    }
+    const { error } = validateUpdatedOrder(tempOrder);
     if (error) {
         return res.status(400).send(error.details);
     }
@@ -167,16 +172,16 @@ router.patch('/:id', verify.verifyToken, async (req, res) => {
             }
         });
     }
-    else{
-        res.status(400).send("Rejecting order failed!");
+    else if(req.body.status === 'rejected'){
+        return res.status(400).send("Rejecting order failed!");
     }
 
     await orderModel.findByIdAndUpdate({ '_id': id }, req.body, { new: true }, function (err, result) {
         if (err) {
-            res.status(500).send(err);
+            return res.status(500).send(err);
         }
         else {
-            res.send(result);
+            return res.send(result);
         }
     });
 });
