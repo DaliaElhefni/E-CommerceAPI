@@ -1,0 +1,28 @@
+{
+  "name": "version1",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "nodemon ."
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@hapi/joi": "^17.1.1",
+    "@okta/jwt-verifier": "^1.0.0",
+    "bcrypt": "^4.0.1",
+    "body-parser": "^1.19.0",
+    "cors": "^2.8.5",
+    "express": "^4.17.1",
+    "joi-objectid": "^3.0.1",
+    "jsonwebtoken": "^8.5.1",
+    "jwt-decode": "^2.2.0",
+    "lodash.isempty": "^4.4.0",
+    "mongoose": "^5.9.7",
+    "mongoose-type-email": "^1.0.12",
+    "multer": "^1.4.2",
+    "nodemon": "^2.0.3"
+  }
+}
