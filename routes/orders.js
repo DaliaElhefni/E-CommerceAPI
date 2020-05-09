@@ -122,7 +122,7 @@ router.delete('/:id', async (req, res) => {
     if (!order) {
         return res.status(404).send("Order ID is not found!");
     }
-    //increase quantity of products 
+    // increase quantity of products 
     order.products.forEach(async function (item) {
         if (await updateProductQuantity(item, '+')) {
             return res.status(500).send("Order deletion failed!");
@@ -130,7 +130,7 @@ router.delete('/:id', async (req, res) => {
     });
 
     let user  = await userModel.findById(order.user);
-    user.orders = user.orders.filter(o=> o._id !== order._id);
+    user.orders = user.orders.filter(o=> o._id.toString() !== id.toString());
     await user.save();
 
     await orderModel.deleteOne({ _id: id }, function (err, result) {
