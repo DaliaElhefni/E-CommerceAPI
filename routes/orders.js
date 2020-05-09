@@ -14,8 +14,7 @@ const router = express.Router();
 
 // input: nothing
 // output: return all orders
-// router.get('/', verify.verifyAdmin, async (req, res) => {
-router.get('/', async (req, res) => {
+router.get('/', verify.verifyAdmin, async (req, res) => {
     const orders = await orderModel.find({})
         .populate('user')
         .populate('products.product');
@@ -34,8 +33,7 @@ function calculateOrderTotalPrice(products) {
 
 // input: request body contains addres and userID
 // output: new Order and empty user's cart
-// router.post('/', verify.verifyToken, async (req, res) => {
-router.post('/', async (req, res) => {
+router.post('/', verify.verifyToken, async (req, res) => {
     const { error } = validateOrder(req.body);
     if (error) {
         return res.status(400).send(error.details);
@@ -111,8 +109,7 @@ async function updateProductQuantity(item, operation) {
 
 // input: order id  =>  used when the order is cancelled
 // output: delete order
-// router.delete('/:id', verify.verifyToken, async (req, res) => {
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', verify.verifyToken, async (req, res) => {
     const { id } = req.params;
     const { error } = validateObjectId(id);
     if (error) {
@@ -144,8 +141,7 @@ router.delete('/:id', async (req, res) => {
 
 // input: order id  =>  updating order (users and products are not allowed to be updated)
 // output: update order
-// router.patch('/:id', verify.verifyToken, async (req, res) => {
-router.patch('/:id', async (req, res) => {
+router.patch('/:id', verify.verifyToken, async (req, res) => {
 
     const { id } = req.params;
     const idError = validateObjectId(id);
@@ -192,8 +188,7 @@ router.patch('/:id', async (req, res) => {
 
 // input: order id  =>  get specific order by its id
 // output: order
-// router.get('/:id', verify.verifyToken, async (req, res) => {
-router.get('/:id', async (req, res) => {
+router.get('/:id', verify.verifyToken, async (req, res) => {
     const { id } = req.params;
     const { error } = validateObjectId(id);
     if (error) {

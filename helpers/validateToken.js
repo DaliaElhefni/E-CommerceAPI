@@ -13,8 +13,7 @@ async function CheckIfUserExixts(id) {
 }
 
 function verifyAdmin(req, res, next) {
-    let token = req.headers.token;
-
+    let token = (req.headers.authorization.split(" "))[1];
     if (!token) {
         res.status(401).send("Token Doesn't Exist");
     }
@@ -44,7 +43,7 @@ function verifyAdmin(req, res, next) {
 }
 
 function verifyToken(req, res, next) {
-    let token = req.headers.token;
+    let token = (req.headers.authorization.split(" "))[1];
 
     if (!token) {
         res.status(401).send("Token Doesn't Exist");

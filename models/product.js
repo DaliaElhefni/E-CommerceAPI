@@ -7,24 +7,34 @@ const productSchema = new mongoose.Schema({
     title: {
         type: String,
         required: true
+        , default: ""
+
     },
     quantity: {
         type: Number,
         required: true,
-        min: 0
+        min: 0,
+        default: 0
+
     },
     price: {
         type: Number,
         required: true,
-        min: 0
+        min: 0,
+        default: 0
+
     },
     details: {
         type: String,
-        required: true
+        required: true,
+        default: ""
+
     },
     productimage: {
         type: String,
-        required: true
+        required: true,
+        default: "index.png"
+
     },
     promotion: {
         type: Number,

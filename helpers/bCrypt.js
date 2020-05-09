@@ -32,21 +32,23 @@ function comparePassword(bodyPassword, dbPassword) {
   });
 }
 
-// function checkAdminExists(admin) {
-//   return new Promise((resolve, reject) => {
-//     userModel.findOne({ "role": admin }, function (error, exists) {
-//       if (error || !exists) {
-//         reject(error)
-//       } 
-//       else if (exists) {
-//         resolve(exists)
-//       }
-//     })
-//   })
-// }
+function checkAdminExists(admin) {
+  console.log("Hello");
+
+  return new Promise((resolve, reject) => {
+    userModel.findOne({ "role": admin }, function (error, exists) {
+      if (error || !exists) {
+        reject(error)
+      } 
+      else if (exists) {
+        resolve(exists)
+      }
+    })
+  })
+}
 
 module.exports = {
   hashPassword: hashPassword,
   comparePassword: comparePassword,
-  // checkAdminExists: checkAdminExists
+   checkAdminExists: checkAdminExists
 };

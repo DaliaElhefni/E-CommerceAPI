@@ -5,7 +5,7 @@ const Productschema = joi.object({
     price: joi.number().required().min(0),
     quantity:joi.number().required().min(0),
     details: joi.string().required(), 
-    productimage: joi.string().required(),
+    // productimage: joi.string().required(),
     promotion:joi.number().min(0).default(0),
     isdeleted:joi.bool().required().default(false)
 });

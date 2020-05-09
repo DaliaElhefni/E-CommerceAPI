@@ -10,6 +10,7 @@ const validateUser = require('../helpers/validateUser');
 const validateObjectId = require('../helpers/validateObjectId');
 const oktaJwtVerifier = require('@okta/jwt-verifier');
 const verify = require('../helpers/validateToken');
+const fs = require('fs');
 
 //add package multer to deal with profile image 
 const multer = require('multer');
@@ -43,11 +44,20 @@ const upload = multer({ storage: storage, fileFilter: fileFilter });
 // Output : Add User To DB And send token to Frontend
 // add middleware to register with profile photo
 router.post('/register', upload.single('profileimage'), async (req, res) => {
+    console.log(req.body)
+    const body = req.body;
+    // console.log(req.file)
+    // console.log(req.headers.authorization)
     // Validate Request Body
+    if(!('password' in body && 'email' in body) ){
+        return res.status(400).send("Invalid User Schema")
+    }
     let { error } = validateUser(req.body);
     if (error) {
-        return res.status(400).send(error.details);
+        console.log(error.details)
+        return res.status(400).send("Something Wrong with The user Model");
     }
+
 
     // Use Schema
     let user = new userModel({
@@ -60,63 +70,72 @@ router.post('/register', upload.single('profileimage'), async (req, res) => {
     let email = user.email;
     await userModel.findOne({ "email": email }, function (error, exists) {
         if (error) {
-            res.status(400).send("Error With E-mail");
-        }
-        else if (!exists) {
+            res.send("Error With E-mail");
+        } else if (!exists) {
+
             // Hash The Password
             Bcrypt.hashPassword(user.password).then(async (hash) => {
-                user.password = hash;
+                user.password = hash
 
                 // Check if There is an Admin Already
-                await userModel.findOne({ "role": admin }, async function (error, exists) {
-                    if (error || !exists) {
+                // const checkAdminExists = Bcrypt.checkAdminExists("admin");
+                Bcrypt.checkAdminExists("admin").then(async () => {
+
+                    // Set user role to user if admin exists
+                    user.role = "user";
+
+                    // Save in DB And Send User Token To Frontend
+                    user = await user.save(function (error, registeredUser) {
+
+                        let payload = { subject: registeredUser.id, role: registeredUser.role };
+                          let token = jwt.sign(payload, verify.accessTokenSecret);
+                          res.status(200).send({ token });
+
+                    });
+                })
+                    .catch(async () => {
+                    console.log("Hello");
+
                         // set user role to admin if not exists
                         user.role = "admin";
-
+                        console.log(user);
                         // Save in DB And Send Admin Token To Frontend
                         user = await user.save(function (error, registeredUser) {
-                            let payload = { subject: registeredUser.id, role: registeredUser.role };
-                            let token = jwt.sign(payload, verify.accessTokenSecret);
+                            let payload = { subject: registeredUser.id }
+                            let token = jwt.sign(payload, 'admin')
                             res.status(200).send({ token });
+
                         });
-                    }
-                    else if (exists) {
-                        // Set user role to user if admin exists
-                        user.role = "user";
-                        // Save in DB And Send User Token To Frontend
-                        user = await user.save(function (error, registeredUser) {
-                            let payload = { subject: registeredUser.id, role: registeredUser.role };
-                            let token = jwt.sign(payload, verify.accessTokenSecret);
-                            res.status(200).send({ token });
-                        });
-                    }
-                });
-            }).catch((err) => res.status(400).send(err));
+                    })
+
+            }).catch((err) => res.status(401).send("Error"));
+
+        } else if (exists) {
+            return res.status(401).send("Email Already Exists")
         }
-        else if (exists) {
-            return res.status(400).send("Email Already Exists");
-        }
-    });
+    })
+
 });
+
 
 // Input : (E-mail, password) in Body
 // Output : Tokin of The User
 router.post('/login', async (req, res) => {
 
     //validate email and password
-    let { error } = validateUser(req.body);
-    if (error) {
-        return res.status(400).send(error.details);
-    }
+    // let { error } = validateUser(req.body);
+    // if (error) {
+    //     return res.status(400).send(error.details);
+    // }
 
     // Check if E-mail Exists, Then Check Password 
     let body = req.body;
     await userModel.findOne({ "email": body.email }, async function (error, user) {
         if (error) {
-            res.status(500).send(error);
+            return res.status(500).send("Hola");
         }
         else if (!user) {
-            res.status(404).send("Error Finding E-mail");
+           return res.status(404).send("E-mail Doesn't Exist, Try Signing up first");
         }
         else if (user) {
             // Compare passwords and return user if success
@@ -134,7 +153,7 @@ router.post('/login', async (req, res) => {
                         res.status(200).send({ token });
                     }
                 })
-                .catch((error) => res.status(400).send("Password Doesn't Match"));
+                .catch((error) => res.status(400).send("Incorrect Password"));
         }
     });
 });
@@ -142,8 +161,7 @@ router.post('/login', async (req, res) => {
 
 // Input : Name of The User To Be Searched in URL ,  Admin Token in Header
 // Output : Specific User
-// router.get('/search/:name', verify.verifyAdmin, async (req, res) => {
-router.get('/search/:name', async (req, res) => {
+router.get('/search/:name', verify.verifyAdmin, async (req, res) => {
     const { name } = req.params;
     await userModel.find({ username: name }, function (error, exists) {
         if (error) {
@@ -161,8 +179,35 @@ router.get('/search/:name', async (req, res) => {
 
 // Input : User ID in Url & Admin Token in Body
 // Output : Specific User
-// router.get('/:id', verify.verifyAdmin, async (req, res) => {
-router.get('/:id', async (req, res) => {
+router.get('/user', verify.verifyToken, async (req, res) => {
+
+    const id  = req.userId;
+    const { error } = validateObjectId(id);
+    if (error) {
+        return res.status(400).send("Invalid User ID");
+    }
+    let user = await userModel.findById(id);
+    if (!user) {
+        res.status(404).send("User Not Found!");
+    }else if(user){
+            if (user.profileimage != '') {
+                if (fs.existsSync(user.profileimage)) {
+                    user.profileimage = fs.readFileSync(user.profileimage, { encoding: 'base64' });
+                }
+                else {
+                    user.profileimage = fs.readFileSync('./ProfileImages/img2.jpg', { encoding: 'base64' });
+                }
+            }
+            res.status(200).send(user)
+        }
+    
+});    
+
+
+// Input : User ID in Url & Admin Token in Body
+// Output : Specific User
+router.get('/:id', verify.verifyAdmin, async (req, res) => {
+    console.log("HEllo")
     const { id } = req.params;
     const { error } = validateObjectId(id);
     if (error) {
@@ -177,16 +222,14 @@ router.get('/:id', async (req, res) => {
 
 // Input : Admin Token in Header
 // Output : All Users
-// router.get('/', verify.verifyAdmin, async (req, res) => {
-router.get('/', async (req, res) => {
+router.get('/', verify.verifyAdmin, async (req, res) => {
     let user = await userModel.find();
     res.status(200).send(user);
 });
 
 // Input :  User or Admin Token in Header
 // Output : User's Products
-// router.get('/:id/products', verify.verifyToken, async (req, res) => {
-router.get('/:id/products', async (req, res) => {
+router.get('/:id/products', verify.verifyToken, async (req, res) => {
 
     await userModel.findById(req.userId, async function (error, exists) {
         if (!exists) {
@@ -205,12 +248,11 @@ router.get('/:id/products', async (req, res) => {
     });
 });
 
+
 // Input : User or Admin Token in Header
 // Output : User's Orders
-// router.get('/:id/orders', verify.verifyToken, async (req, res) => {
-router.get('/:id/orders', async (req, res) => {
-    const {id} = req.params;
-    await userModel.findById(id, async function (error, user) {
+router.get('/:id/orders', verify.verifyToken, async (req, res) => {
+    await userModel.findById(req.userId, async function (error, user) {
         if (!user) {
             res.status(404).send("User Not Found");
         }
@@ -229,8 +271,7 @@ router.get('/:id/orders', async (req, res) => {
 
 // Input : User ID in URL and (Admin Token) in Header
 // Output : Deletion Confirmation
-// router.delete('/:id', verify.verifyAdmin, async (req, res) => {
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', verify.verifyAdmin, async (req, res) => {
     const { id } = req.params;
     const { error } = validateObjectId(id);
     if (error) {
@@ -253,9 +294,9 @@ router.delete('/:id', async (req, res) => {
 
 // Input : (User ID) And (Input To be Modified) in Body
 // Output : Message
-// router.put('/:id', verify.verifyToken, async (req, res) => {
-router.put('/:id', async (req, res) => {
-    const { id } = req.params;
+router.put('/:id', verify.verifyToken,upload.single('profileimage'), async (req, res) => {
+     console.log(req.file);
+    const  id = req.userId;
     const { error } = validateObjectId(id);
     if (error) {
         res.status(400).send("Invalid UserID");
@@ -283,6 +324,21 @@ router.put('/:id', async (req, res) => {
 
     if ('password' in body) {
         // hash the password
+<<<<<<< HEAD
+       await Bcrypt.hashPassword(body.password)
+        .then((hashValue) => {
+            body.password = hashValue;
+            })
+            .catch((err) => { res.send(err) });
+    }else if(req.file){
+        body = {'profileimage':req.file.path};
+    }
+
+    await userModel.findByIdAndUpdate(id, body, function (error, success) {        
+        if (error) {
+            res.status(500).send("Error Can't Update");
+        } else if(success) {
+=======
         Bcrypt.hashPassword(body.password)
             .then((hashValue) => {
                 body.password = hashValue;
@@ -294,6 +350,7 @@ router.put('/:id', async (req, res) => {
         if (error) {
             res.status(500).send("Error Can't Update");
         } else {
+>>>>>>> a66dd1305a8bcdab9a36f174eeee799a36d7aae0
             res.status(200).send("Updated Succesfuly");
         }
     });
@@ -301,8 +358,7 @@ router.put('/:id', async (req, res) => {
 
 // Input : User ID & One Product Per Time {Product ID} in Body
 // Output :
-// router.patch('/:id/products', verify.verifyToken, async (req, res) => {
-router.patch('/:id/products', async (req, res) => {
+router.patch('/:id/products', verify.verifyToken, async (req, res) => {
     const { id } = req.params;
     const { error } = validateObjectId(id);
     if (error) {
@@ -343,8 +399,7 @@ router.patch('/:id/products', async (req, res) => {
 
 // Input : User ID & One Product  to delete
 // Output : product Deleted 
-// router.delete('/:id/products', verify.verifyToken, async (req, res) => {
-router.delete('/:id/products', async (req, res) => {
+router.delete('/:id/products', verify.verifyToken, async (req, res) => {
     const { id } = req.params;
     const { error } = validateObjectId(id);
     if (error) {
