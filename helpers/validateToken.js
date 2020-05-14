@@ -13,20 +13,20 @@ async function CheckIfUserExixts(id) {
 }
 
 function verifyAdmin(req, res, next) {
-    let token = (req.headers.authorization.split(" "))[1];
-    if (!token) {
-        res.status(401).send("Token Doesn't Exist");
+    if (!req.headers.authorization) {
+        return res.status(401).send("Unauthorized");
     }
-    else if (token === null) {
-        res.status(401).send("Token Doesn't Exist");
+    let token = (req.headers.authorization.split(" "))[1];
+    if (token === null) {
+        return res.status(401).send("Unauthorized");
     }
     else {
         jwt.verify(token, accessTokenSecret, async function (err, decoded) {
             if (err) {
-                res.status(403).send("Invalid Token");
+                return res.status(403).send("Invalid Token");
             }
             else if (decoded.role !== "admin") {
-                res.status(401).send("You are not Admin");
+                return res.status(401).send("Unauthorized: You are not Admin");
             }
             else {
                 if (CheckIfUserExixts(decoded.subject)) {
@@ -35,7 +35,7 @@ function verifyAdmin(req, res, next) {
                     next();
                 }
                 else{
-                    res.status(404).send("This user does not exist!");
+                    return res.status(404).send("This user does not exist!");
                 }
             }
         });
@@ -43,16 +43,17 @@ function verifyAdmin(req, res, next) {
 }
 
 function verifyToken(req, res, next) {
+    if (!req.headers.authorization) {
+        return res.status(401).send("Unauthorized");
+    }
     let token = (req.headers.authorization.split(" "))[1];
 
-    if (!token) {
-        res.status(401).send("Token Doesn't Exist");
-    } else if (token === null) {
-        res.status(401).send("Token Doesn't Exist");
+    if (token === null) {
+        return res.status(401).send("Unauthorized");
     } else {
         jwt.verify(token, accessTokenSecret, async function (err, decoded) {
             if (err) {
-                res.status(403).send("Invalid Token");
+                return res.status(403).send("Invalid Token");
             }
             else {
                 if (CheckIfUserExixts(decoded.subject)) {
@@ -61,7 +62,7 @@ function verifyToken(req, res, next) {
                     next();
                 }
                 else{
-                    res.status(404).send("This user does not exist!");
+                    return res.status(404).send("This user does not exist!");
                 }
             }
         });
