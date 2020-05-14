@@ -44,20 +44,15 @@ const upload = multer({ storage: storage, fileFilter: fileFilter });
 // Output : Add User To DB And send token to Frontend
 // add middleware to register with profile photo
 router.post('/register', upload.single('profileimage'), async (req, res) => {
-    console.log(req.body)
     const body = req.body;
-    // console.log(req.file)
-    // console.log(req.headers.authorization)
     // Validate Request Body
-    if(!('password' in body && 'email' in body) ){
+    if (!('password' in body && 'email' in body)) {
         return res.status(400).send("Invalid User Schema")
     }
     let { error } = validateUser(req.body);
     if (error) {
-        console.log(error.details)
         return res.status(400).send("Something Wrong with The user Model");
     }
-
 
     // Use Schema
     let user = new userModel({
@@ -70,12 +65,12 @@ router.post('/register', upload.single('profileimage'), async (req, res) => {
     let email = user.email;
     await userModel.findOne({ "email": email }, function (error, exists) {
         if (error) {
-            res.send("Error With E-mail");
+            return res.send("Error With E-mail");
         } else if (!exists) {
 
             // Hash The Password
             Bcrypt.hashPassword(user.password).then(async (hash) => {
-                user.password = hash
+                user.password = hash;
 
                 // Check if There is an Admin Already
                 // const checkAdminExists = Bcrypt.checkAdminExists("admin");
@@ -88,33 +83,29 @@ router.post('/register', upload.single('profileimage'), async (req, res) => {
                     user = await user.save(function (error, registeredUser) {
 
                         let payload = { subject: registeredUser.id, role: registeredUser.role };
-                          let token = jwt.sign(payload, verify.accessTokenSecret);
-                          res.status(200).send({ token });
+                        let token = jwt.sign(payload, verify.accessTokenSecret);
+                        return res.status(200).send({ token });
 
                     });
                 })
                     .catch(async () => {
-                    console.log("Hello");
-
                         // set user role to admin if not exists
                         user.role = "admin";
-                        console.log(user);
                         // Save in DB And Send Admin Token To Frontend
                         user = await user.save(function (error, registeredUser) {
-                            let payload = { subject: registeredUser.id }
-                            let token = jwt.sign(payload, 'admin')
-                            res.status(200).send({ token });
+                            let payload = { subject: registeredUser.id };
+                            let token = jwt.sign(payload, 'admin');
+                            return res.status(200).send({ token });
 
                         });
-                    })
+                    });
 
             }).catch((err) => res.status(401).send("Error"));
 
         } else if (exists) {
             return res.status(401).send("Email Already Exists")
         }
-    })
-
+    });
 });
 
 
@@ -135,7 +126,7 @@ router.post('/login', async (req, res) => {
             return res.status(500).send("Hola");
         }
         else if (!user) {
-           return res.status(404).send("E-mail Doesn't Exist, Try Signing up first");
+            return res.status(404).send("E-mail Doesn't Exist, Try Signing up first");
         }
         else if (user) {
             // Compare passwords and return user if success
@@ -145,12 +136,12 @@ router.post('/login', async (req, res) => {
                     if (user.role == "admin") {
                         let payload = { subject: user.id, role: user.role };
                         let token = jwt.sign(payload, verify.accessTokenSecret);
-                        res.status(200).send({ token });
+                        return res.status(200).send({ token });
                     }
                     else if (user.role == "user") {
                         let payload = { subject: user.id, role: user.role };
                         let token = jwt.sign(payload, verify.accessTokenSecret);
-                        res.status(200).send({ token });
+                        return res.status(200).send({ token });
                     }
                 })
                 .catch((error) => res.status(400).send("Incorrect Password"));
@@ -165,13 +156,13 @@ router.get('/search/:name', verify.verifyAdmin, async (req, res) => {
     const { name } = req.params;
     await userModel.find({ username: name }, function (error, exists) {
         if (error) {
-            res.status(500).send(error);
+            returnres.status(500).send(error);
         }
         else if (exists) {
-            res.status(200).send(exists);
+            return res.status(200).send(exists);
         }
         else {
-            res.status(404).send("User Not found");
+            return res.status(404).send("User Not found");
         }
     });
 });
@@ -181,33 +172,32 @@ router.get('/search/:name', verify.verifyAdmin, async (req, res) => {
 // Output : Specific User
 router.get('/user', verify.verifyToken, async (req, res) => {
 
-    const id  = req.userId;
+    const id = req.userId;
     const { error } = validateObjectId(id);
     if (error) {
         return res.status(400).send("Invalid User ID");
     }
-    let user = await userModel.findById(id);
+    let user = await userModel.findById(id).populate('products.product');
     if (!user) {
-        res.status(404).send("User Not Found!");
-    }else if(user){
-            if (user.profileimage != '') {
-                if (fs.existsSync(user.profileimage)) {
-                    user.profileimage = fs.readFileSync(user.profileimage, { encoding: 'base64' });
-                }
-                else {
-                    user.profileimage = fs.readFileSync('./ProfileImages/img2.jpg', { encoding: 'base64' });
-                }
+        return res.status(404).send("User Not Found!");
+    } else if (user) {
+        if (user.profileimage != '') {
+            if (fs.existsSync(user.profileimage)) {
+                user.profileimage = fs.readFileSync(user.profileimage, { encoding: 'base64' });
             }
-            res.status(200).send(user)
+            else {
+                user.profileimage = fs.readFileSync('./ProfileImages/img2.jpg', { encoding: 'base64' });
+            }
         }
-    
-});    
+        return res.status(200).send(user)
+    }
+
+});
 
 
 // Input : User ID in Url & Admin Token in Body
 // Output : Specific User
 router.get('/:id', verify.verifyAdmin, async (req, res) => {
-    console.log("HEllo")
     const { id } = req.params;
     const { error } = validateObjectId(id);
     if (error) {
@@ -215,16 +205,16 @@ router.get('/:id', verify.verifyAdmin, async (req, res) => {
     }
     let user = await userModel.findById(id);
     if (!user) {
-        res.status(404).send("User Not Found!");
+        return res.status(404).send("User Not Found!");
     }
-    res.status(200).send(user);
+    return res.status(200).send(user);
 });
 
 // Input : Admin Token in Header
 // Output : All Users
 router.get('/', verify.verifyAdmin, async (req, res) => {
     let user = await userModel.find();
-    res.status(200).send(user);
+    return res.status(200).send(user);
 });
 
 // Input :  User or Admin Token in Header
@@ -233,15 +223,15 @@ router.get('/:id/products', verify.verifyToken, async (req, res) => {
 
     await userModel.findById(req.userId, async function (error, exists) {
         if (!exists) {
-            res.status(404).send("User Not found");
+            return res.status(404).send("User Not found");
         }
         else if (exists) {
             await exists.populate('products.product', function (error, success) {
                 if (error) {
-                    res.status(500).send("Error Populating");
+                    return res.status(500).send("Error Populating");
                 }
                 else {
-                    res.status(200).send(success.products);
+                    return res.status(200).send(success.products);
                 }
             });
         }
@@ -254,15 +244,15 @@ router.get('/:id/products', verify.verifyToken, async (req, res) => {
 router.get('/:id/orders', verify.verifyToken, async (req, res) => {
     await userModel.findById(req.userId, async function (error, user) {
         if (!user) {
-            res.status(404).send("User Not Found");
+            return res.status(404).send("User Not Found");
         }
         else if (user) {
             await user.populate('orders', function (error, success) {
                 if (error) {
-                    res.status(500).send("Error Populating");
+                    return res.status(500).send("Error Populating");
                 }
                 else {
-                    res.status(200).send(success.orders);
+                    return res.status(200).send(success.orders);
                 }
             });
         }
@@ -279,13 +269,13 @@ router.delete('/:id', verify.verifyAdmin, async (req, res) => {
     }
     await userModel.findByIdAndDelete(id, async function (error, success) {
         if (!success) {
-            res.status(404).send("User Is Not Found");
+            return res.status(404).send("User Is Not Found");
         } else if (success) {
             await orderModel.deleteMany({ user: success.id }, function (error, success) {
                 if (error) {
-                    res.status(500).send("Error Deleting");
+                    return res.status(500).send("Error Deleting");
                 } else {
-                    res.status(200).send("Deleted Succesfully");
+                    return res.status(200).send("Deleted Succesfully");
                 }
             });
         }
@@ -294,12 +284,11 @@ router.delete('/:id', verify.verifyAdmin, async (req, res) => {
 
 // Input : (User ID) And (Input To be Modified) in Body
 // Output : Message
-router.put('/:id', verify.verifyToken,upload.single('profileimage'), async (req, res) => {
-     console.log(req.file);
-    const  id = req.userId;
+router.put('/:id', verify.verifyToken, upload.single('profileimage'), async (req, res) => {
+    const id = req.userId;
     const { error } = validateObjectId(id);
     if (error) {
-        res.status(400).send("Invalid UserID");
+        return res.status(400).send("Invalid UserID");
     }
 
     let body = req.body;
@@ -324,34 +313,20 @@ router.put('/:id', verify.verifyToken,upload.single('profileimage'), async (req,
 
     if ('password' in body) {
         // hash the password
-<<<<<<< HEAD
-       await Bcrypt.hashPassword(body.password)
-        .then((hashValue) => {
-            body.password = hashValue;
-            })
-            .catch((err) => { res.send(err) });
-    }else if(req.file){
-        body = {'profileimage':req.file.path};
-    }
-
-    await userModel.findByIdAndUpdate(id, body, function (error, success) {        
-        if (error) {
-            res.status(500).send("Error Can't Update");
-        } else if(success) {
-=======
-        Bcrypt.hashPassword(body.password)
+        await Bcrypt.hashPassword(body.password)
             .then((hashValue) => {
                 body.password = hashValue;
             })
             .catch((err) => { res.send(err) });
+    } else if (req.file) {
+        body = { 'profileimage': req.file.path };
     }
 
     await userModel.findByIdAndUpdate(id, body, function (error, success) {
         if (error) {
-            res.status(500).send("Error Can't Update");
-        } else {
->>>>>>> a66dd1305a8bcdab9a36f174eeee799a36d7aae0
-            res.status(200).send("Updated Succesfuly");
+            return res.status(500).send("Error Can't Update");
+        } else if (success) {
+            return res.status(200).send("Updated Succesfuly");
         }
     });
 });
@@ -362,12 +337,12 @@ router.patch('/:id/products', verify.verifyToken, async (req, res) => {
     const { id } = req.params;
     const { error } = validateObjectId(id);
     if (error) {
-        res.status(400).send("Invalid UserID");
+        return res.status(400).send("Invalid UserID");
     }
 
     const productIdError = validateObjectId(req.body.product);
     if (productIdError.error) {
-        res.status(400).send("Invalid product ID");
+        return res.status(400).send("Invalid product ID");
     }
 
     // Check if Product Exists in DB
@@ -390,45 +365,44 @@ router.patch('/:id/products', verify.verifyToken, async (req, res) => {
 
     await user.save()
         .then(function () {
-            res.status(200).send(user);
+            return res.status(200).send(user);
         })
         .catch(function (err) {
-            res.status(500).send(err);
+            return res.status(500).send(err);
         });
 });
 
 // Input : User ID & One Product  to delete
 // Output : product Deleted 
-router.delete('/:id/products', verify.verifyToken, async (req, res) => {
-    const { id } = req.params;
+router.delete('/:id/products/:productId', verify.verifyToken, async (req, res) => {
+    const { id, productId } = req.params;
     const { error } = validateObjectId(id);
     if (error) {
-        res.status(400).send("Invalid UserID");
+        return res.status(400).send("Invalid UserID");
     }
-    const productIdError = validateObjectId(req.body.product);
+    const productIdError = validateObjectId(productId);
     if (productIdError.error) {
-        res.status(400).send("Invalid product ID");
+        return res.status(400).send("Invalid product ID");
     }
     let user = await userModel.findById(id);
     let userProducts = await user.products;
-    const product = await productModel.findById(req.body.product);
-
+    const product = await productModel.findById(productId);
     if (!user) {
         return res.status(404).send("User does not exist!");
     }
     if (user.products.some(p => p.product.toString() === product._id.toString())) {
-        userProducts = userProducts.filter(element => element.product.toString() !== product._id.toString());
+        user.products = userProducts.filter(element => element.product.toString() !== product._id.toString());
     }
     else {
-        res.status(404).send("Product is not found!");
+        return res.status(404).send("Product is not found!");
     }
 
     await user.save()
         .then(function () {
-            res.status(200).send(user);
+            return res.status(200).send(user);
         })
         .catch(function (err) {
-            res.status(500).send(err);
+            return res.status(500).send(err);
         });
 });
 

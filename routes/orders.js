@@ -14,7 +14,9 @@ const router = express.Router();
 
 // input: nothing
 // output: return all orders
-router.get('/', verify.verifyAdmin, async (req, res) => {
+// router.get('/', verify.verifyAdmin, async (req, res) => {
+router.get('/', async (req, res) => {
+
     const orders = await orderModel.find({})
         .populate('user')
         .populate('products.product');

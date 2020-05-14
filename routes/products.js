@@ -31,15 +31,14 @@ const upload = multer({ storage: storage, fileFilter: fileFilter });
 // input: nothing
 // output: return all products
 router.get('/', verify.verifyToken, async (req, res) => {
-    const products = await productModel.find();
-    res.send(products);
+    const products = await productModel.find({isdeleted: false , quantity: {$ne:0}});
+    return res.send(products);
 });
 
 // input: request body + product image file
 // output: return added product
 router.post('/', [upload.single('productimage'), verify.verifyAdmin], async (req, res, next) => {
     //validate product
-    console.log(req.file);
      const { error } = ValidateProduct(req.body);
      if (error) { return res.status(400).send(error.details); }
     let product = new productModel({
@@ -48,7 +47,7 @@ router.post('/', [upload.single('productimage'), verify.verifyAdmin], async (req
         productimage: req.file.originalname
     });
     product = await product.save();
-    res.send(product);
+    return res.send(product);
 });
 
 // input: product id 
@@ -70,7 +69,7 @@ router.delete('/:id', verify.verifyAdmin, async (req, res) => {
             return res.status(500).send(err);
         }
         else{
-            res.send(result);
+            return res.send(result);
         }
     });
 });
@@ -91,20 +90,21 @@ router.patch('/:id', [upload.single('productimage'), verify.verifyAdmin], async 
     let updatedProduct = Object.assign({}, product._doc, req.body);
     delete updatedProduct._id;
     delete updatedProduct.__v;
-    if(req.file){
-        updatedProduct.productimage = req.file.path;
-    }
     
     //validation for product..
     const productError = ValidateProduct(updatedProduct);
     if (productError.error) { return res.status(400).send(productError.error.details); }
 
+    if(req.file){
+        updatedProduct.productimage = req.file.originalname;
+    }
+    
     await productModel.findByIdAndUpdate({ '_id': id }, updatedProduct, { new: true }, function (err, result) {
         if (err) {
             return res.status(500).send(err);
         }
         else{
-            res.send(result);
+            return res.send(result);
         }
     });
     
@@ -113,15 +113,15 @@ router.patch('/:id', [upload.single('productimage'), verify.verifyAdmin], async 
 // input: nothing
 // output: return products with promotions only
 router.get('/promotions', async (req, res) => {
-    const products = await productModel.find({promotion: { $ne: 0 } });
-    res.send(products);
+    const products = await productModel.find({promotion: { $ne: 0 }, isdeleted: false , quantity: {$ne:0} });
+    return res.send(products);
 });
 
 // input: get name of product to search for it
 // output: return products that contain the given name
 router.get('/search/:name', verify.verifyToken, async (req, res) => {
     const products = await productModel.find({title: { "$regex": req.params.name, "$options": "i" }});
-    res.send(products);
+    return res.send(products);
 });
 
 // input: product id
@@ -136,7 +136,7 @@ router.get('/:id', verify.verifyToken, async (req, res) => {
     if (!product) {
         return res.status(404).send("Product ID is not found!");
     }
-    res.send(product);
+    return res.send(product);
 });
 
 module.exports = router;
