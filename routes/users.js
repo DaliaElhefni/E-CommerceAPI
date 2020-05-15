@@ -6,10 +6,10 @@ const Bcrypt = require('../helpers/bCrypt');
 const userModel = require('../models/user');
 const productModel = require('../models/product');
 const orderModel = require('../models/order');
-const validateUser = require('../helpers/validateUser');
-const validateObjectId = require('../helpers/validateObjectId');
+const validateUser = require('../helpers/validateuser');
+const validateObjectId = require('../helpers/validateobjectid');
 const oktaJwtVerifier = require('@okta/jwt-verifier');
-const verify = require('../helpers/validateToken');
+const verify = require('../helpers/validatetoken');
 const fs = require('fs');
 
 //add package multer to deal with profile image 
@@ -17,7 +17,7 @@ const multer = require('multer');
 //determine the destination and image name
 const storage = multer.diskStorage({
     destination: function (req, file, callback) {
-        callback(null, './ProfileImages/');
+        callback(null, './profileimages/');
     }
     ,
     filename: function (req, file, callback) {
@@ -231,7 +231,8 @@ router.get('/:id/products', verify.verifyToken, async (req, res) => {
                     return res.status(500).send("Error Populating");
                 }
                 else {
-                    return res.status(200).send(success.products);
+                    let products = success.products.filter(p => p.isdeleted != true);
+                    return res.status(200).send(products);
                 }
             });
         }

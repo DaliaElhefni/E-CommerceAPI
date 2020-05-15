@@ -4,10 +4,10 @@ const userModel = require('../models/user');
 const productModel = require('../models/product');
 
 
-const validateOrder = require('../helpers/validateOrder');
-const validateObjectId = require('../helpers/validateObjectId');
-const validateUpdatedOrder = require('../helpers/validateUpdatedOrder');
-const verify = require('../helpers/validateToken');
+const validateOrder = require('../helpers/validateorder');
+const validateObjectId = require('../helpers/validateobjectid');
+const validateUpdatedOrder = require('../helpers/validateupdatedorder');
+const verify = require('../helpers/validatetoken');
 const router = express.Router();
 
 

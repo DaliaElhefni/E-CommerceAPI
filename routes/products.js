@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const productModel = require('../models/product');
-const ValidateProduct = require('../Helpers/validateProduct');
-const ValidateobjectId = require('../Helpers/validateObjectId');
-const verify = require('../helpers/validateToken');
+const ValidateProduct = require('../helpers/validateproduct');
+const ValidateobjectId = require('../helpers/validateobjectid');
+const verify = require('../helpers/validatetoken');
 const multer = require('multer');
 
 const storage = multer.diskStorage({
